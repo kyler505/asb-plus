@@ -221,6 +221,8 @@ pub fn router(state: AppState) -> Router {
         .route("/", get(index))
         .route("/schedule.js", get(schedule_js))
         .route("/degree.js", get(degree_js))
+        .route("/preflight.js", get(preflight_js))
+        .route("/preflight.css", get(preflight_css))
         .route("/vendor/pdfjs/pdf.mjs", get(pdfjs_main))
         .route("/vendor/pdfjs/pdf.worker.mjs", get(pdfjs_worker))
         .route("/api/health", get(health))
@@ -272,6 +274,27 @@ async fn degree_js() -> Result<impl IntoResponse, ApiError> {
             "application/javascript; charset=utf-8",
         )],
         script,
+    ))
+}
+async fn preflight_js() -> Result<impl IntoResponse, ApiError> {
+    let script = tokio::fs::read("static/preflight.js")
+        .await
+        .map_err(|error| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, error))?;
+    Ok((
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "application/javascript; charset=utf-8",
+        )],
+        script,
+    ))
+}
+async fn preflight_css() -> Result<impl IntoResponse, ApiError> {
+    let stylesheet = tokio::fs::read("static/preflight.css")
+        .await
+        .map_err(|error| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, error))?;
+    Ok((
+        [(axum::http::header::CONTENT_TYPE, "text/css; charset=utf-8")],
+        stylesheet,
     ))
 }
 async fn pdfjs_main() -> Result<impl IntoResponse, ApiError> {

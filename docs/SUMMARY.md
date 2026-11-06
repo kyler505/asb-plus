@@ -25,6 +25,11 @@
 - The unpacked Manifest V3 extension imports a local snapshot of public sections, course/instructor grade summaries, and user-authored requirement rules. It does not include the private degree plan, audit, or transcript. The extension reads visible rendered Schedule Builder rows, adds an inline panel with public status, grade context, requirement fit, and conflicts among tracked CRNs, and stores tracked sections and alerts in extension-local storage.
 - Alerts appear for an observed visible closed/full-to-open change and for public open/closed flag changes between manual snapshot imports. Use ASB+'s public refresh before exporting when you need newer public flags. The extension makes no network requests and does not reload, modify, or submit the Schedule Builder page.
 - The extension parser requires a visible row with an identifiable five-digit CRN and explicit open/closed wording. It was tested on a synthetic page, not on a signed-in Schedule Builder page, so support for the live site's DOM and wording is not verified.
+- Preflight lets the user enter a registration-window time and IANA time zone. It shows a local countdown, handles elapsed times, and rejects local times that do not exist during a daylight-saving clock change.
+- The user can maintain a local Holds/Action Items checklist with editable completion state. ASB+ does not read Howdy to detect or verify holds.
+- A ranked schedule can become the primary ordered CRN list. The user can reorder courses, record why the order matters, and add backup CRNs only from generated schedules that fit the other chosen primary sections. Stale backups stay visible and are marked for manual verification.
+- The copy action copies primary CRNs only. If clipboard access fails, ASB+ selects the list for manual copying. Howdy and Schedule Builder links open in separate tabs; the app cannot submit enrollment.
+- Countdown, checklist, ordered CRNs, ordering reason, and backup CRNs stay in browser local storage and are not sent to the server.
 
 ## Stubbed or not included
 
@@ -33,7 +38,7 @@
 - Schedule ranking does not use walking distance because reliable campus paths are not available.
 - Built-in catalog program requirements, automatic Howdy UGDP/audit sync, and official audit or eligibility checks. Users must enter or import rules for their program and catalog year.
 - OCR for scanned PDFs. Plan and audit PDF text extraction runs locally in the browser, but requires extractable text.
-- Holds/Action Items, time-ticket countdown, CRN ordering, and backups.
+- Holds are not verified, and the user enters ticket times manually. ASB+ does not check holds, determine ticket eligibility, or submit registration.
 - Public Howdy data does not provide numeric seat counts. Confirm availability, eligibility, and registration in Howdy.
 - The supplied `data/s27.json` and local SQLite database are not committed. Grade imports are local and must be repeated on another installation.
 
@@ -61,5 +66,4 @@ The live Schedule Builder parser has not been validated on its signed-in page. I
 
 ## Next steps
 
-1. Add local Holds/Action Items, time-ticket countdown, ordered CRNs, and backups.
-2. Resolve permission and approved use before considering RMP.
+1. Resolve permission and approved use before considering RMP.

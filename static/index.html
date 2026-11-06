@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#f5f3ed">
 <title>ASB+ | Course finder</title>
+<link rel="stylesheet" href="/preflight.css">
 <style>
 :root{color-scheme:light;--paper:#f5f3ed;--surface:#fff;--ink:#202522;--muted:#69716b;--line:#d7dcd3;--maroon:#500000;--maroon-2:#741d26;--soft:#f1eee8;--green:#286248;--amber:#805c18;--danger:#943e32;--focus:#b46a20}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,input,select{font:inherit}button,a,select,input{min-height:40px}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:3px}a{color:var(--maroon)}.skip{position:absolute;inset-block-start:-100px;inset-inline-start:16px;background:var(--surface);padding:10px;z-index:5}.skip:focus{inset-block-start:12px}.wrap{max-width:1260px;margin:auto;padding:0 32px}.topbar{height:74px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.brand{font-weight:850;letter-spacing:-.06em;font-size:24px}.brand span{color:var(--maroon)}.campus{font-size:12px;letter-spacing:.1em;color:var(--muted);font-weight:700}.hero{padding:38px 0 26px}.eyebrow{text-transform:uppercase;letter-spacing:.13em;color:var(--maroon);font-weight:750;font-size:11px}h1{font-size:clamp(32px,5vw,48px);letter-spacing:-.05em;line-height:1.06;margin:8px 0}.subtitle{color:var(--muted);margin:0;max-width:65ch}.main{padding-bottom:64px}.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px}.filters{display:grid;grid-template-columns:minmax(220px,1fr) minmax(150px,200px) minmax(160px,220px) auto;gap:12px;align-items:end}.field{display:grid;gap:5px}.field label,.filter-title{font-size:12px;color:var(--muted);font-weight:700}.field input,.field select{width:100%;border:1px solid #aeb7ad;border-radius:6px;padding:9px 11px;background:var(--surface);color:var(--ink)}.button{background:var(--maroon);color:#fff;border:1px solid var(--maroon);border-radius:6px;padding:8px 15px;font-weight:700;cursor:pointer}.button.secondary{background:var(--surface);color:var(--maroon)}.button:disabled{opacity:.55;cursor:wait}.toolrow{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:13px}.check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}.check input{width:18px;height:18px;accent-color:var(--maroon)}.source{font-size:12px;color:var(--muted)}.source strong{color:var(--ink)}.results-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:26px 0 12px}h2{font-size:21px;letter-spacing:-.03em;margin:0}.count{font-size:13px;color:var(--muted)}.cards{display:grid;gap:10px}.section{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;display:grid;grid-template-columns:minmax(180px,1.1fr) minmax(180px,1.2fr) minmax(160px,1fr) minmax(145px,.8fr);gap:16px;align-items:start}.course{font-weight:800;color:var(--maroon)}.section-title{font-weight:650;margin-top:3px}.subtext{font-size:13px;color:var(--muted);margin-top:3px}.label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:750}.availability{font-size:13px;font-weight:750}.availability.open{color:var(--green)}.availability.closed{color:var(--danger)}.availability.unknown{color:var(--amber)}.mini{font-size:12px;color:var(--muted)}.linkbutton{border:0;background:transparent;color:var(--maroon);font-weight:750;text-decoration:underline;text-underline-offset:3px;padding:4px 0;cursor:pointer}.actions{display:flex;flex-direction:column;align-items:flex-start}.pages{display:flex;justify-content:space-between;align-items:center;margin-top:16px}.empty,.error{padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:8px}.error{border-inline-start:4px solid var(--danger)}.empty p,.error p{margin:4px 0}.hidden{display:none!important}dialog{width:min(760px,calc(100% - 24px));max-height:85vh;border:1px solid var(--line);border-radius:10px;padding:0;color:var(--ink);box-shadow:0 18px 50px #0003}dialog::backdrop{background:#17191880}.dialog-head{display:flex;justify-content:space-between;align-items:center;padding:17px 20px;border-bottom:1px solid var(--line)}.dialog-body{padding:20px;overflow:auto}.iconbutton{border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--ink);padding:6px 10px;cursor:pointer}.grade-table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:540px;text-align:left}th,td{padding:9px;border-bottom:1px solid var(--line);font-size:13px}th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}footer{border-top:1px solid var(--line);padding:17px 0 24px;color:var(--muted);font-size:12px}.status{min-height:1.5em;color:var(--muted);font-size:13px}@media(max-width:820px){.filters{grid-template-columns:1fr 1fr}.section{grid-template-columns:1fr 1fr}.actions{grid-column:1/-1;flex-direction:row;gap:16px;align-items:center}}@media(max-width:560px){.wrap{padding-inline:16px}.topbar{height:62px}.campus{font-size:10px}.hero{padding:29px 0 21px}.panel{padding:15px}.filters{grid-template-columns:1fr}.toolrow,.results-head{align-items:flex-start;flex-direction:column}.section{grid-template-columns:1fr;gap:10px}.actions{grid-column:auto}.pages{gap:10px}.button{min-height:44px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important}}
 .filters{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:820px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.filters{grid-template-columns:1fr}}
@@ -89,6 +90,43 @@
 <div id="schedule-results" aria-busy="false"></div>
 <button class="button secondary" id="schedule-more" type="button" hidden>Load more schedules</button>
 <div id="schedule-comparison" class="profile-box"></div>
+<section id="preflight-tools" class="degree-subpanel" aria-labelledby="preflight-heading">
+<h3 id="preflight-heading">Preflight and ticket day</h3>
+<p class="subtext">Keep your time ticket, personal checklist, ordered CRNs, and backups in this browser. ASB+ does not check holds or submit registration.</p>
+<div class="preflight-ticket">
+<h4>Time-ticket countdown</h4>
+<form id="preflight-ticket-form" class="degree-grid">
+<div class="field"><label for="preflight-ticket-time">Registration window opens</label><input id="preflight-ticket-time" type="datetime-local" required></div>
+<div class="field"><label for="preflight-ticket-zone">Time zone (IANA name)</label><input id="preflight-ticket-zone" value="America/Chicago" required autocomplete="off" placeholder="America/Chicago"></div>
+<div class="field preflight-ticket-submit"><button class="button" type="submit">Save countdown</button></div>
+</form>
+<p id="preflight-countdown" class="status" role="status" aria-live="polite">Set your registration window to start a local countdown.</p>
+</div>
+<div class="preflight-grid">
+<section aria-labelledby="preflight-checklist-heading">
+<h4 id="preflight-checklist-heading">Holds and action items</h4>
+<p class="subtext">Add and check off items you confirmed in Howdy. This list is not synced.</p>
+<form id="preflight-item-form" class="preflight-add">
+<div class="field"><label for="preflight-item-kind">Item type</label><select id="preflight-item-kind"><option>Hold</option><option>Action item</option></select></div>
+<div class="field"><label for="preflight-item-text">Item</label><input id="preflight-item-text" maxlength="240" required placeholder="For example, Lab Safety"></div>
+<button class="button secondary" type="submit">Add item</button>
+</form>
+<ul id="preflight-checklist" class="preflight-list"></ul>
+<p id="preflight-checklist-status" class="status" role="status" aria-live="polite"></p>
+</section>
+<section aria-labelledby="preflight-order-heading">
+<h4 id="preflight-order-heading">Ordered CRNs and backups</h4>
+<p class="subtext">Choose a ranked schedule, then set the order and reason. Backups come only from generated schedules that fit the other selected CRNs.</p>
+<div id="preflight-order-status" class="status" role="status" aria-live="polite">Generate schedules and choose “Use as primary CRN order” to begin.</div>
+<div id="preflight-order"></div>
+<div class="field"><label for="preflight-crn-list">Primary CRNs to paste in order (backups are not included)</label><textarea id="preflight-crn-list" rows="4" readonly></textarea></div>
+<div class="degree-actions"><button class="button secondary" id="preflight-copy-crns" type="button" disabled>Copy primary CRNs</button></div>
+<p id="preflight-copy-status" class="status" role="status" aria-live="polite"></p>
+<p class="subtext">Confirm live availability and eligibility before registration. Open Howdy or Schedule Builder in a separate tab; ASB+ does not submit registration.</p>
+<p class="preflight-links"><a href="https://howdy.tamu.edu/" target="_blank" rel="noopener noreferrer">Open Howdy</a><a href="https://tamu.collegescheduler.com/" target="_blank" rel="noopener noreferrer">Open Schedule Builder</a></p>
+</section>
+</div>
+</section>
 </section>
 <section id="degree-tools" class="panel tool-panel" aria-labelledby="degree-heading">
 <h2 id="degree-heading">Degree planner and audit</h2>
@@ -183,6 +221,7 @@
 <dialog id="grade-dialog" aria-labelledby="grade-title"><div class="dialog-head"><h2 id="grade-title">Historical grade distributions</h2><button class="iconbutton" type="button" id="close-dialog">Close</button></div><div class="dialog-body"><p class="subtext" id="grade-course"></p><div id="grade-status" class="status" role="status" aria-live="polite"></div><div id="grade-content"></div></div></dialog>
 <script src="/schedule.js"></script>
 <script src="/degree.js"></script>
+<script src="/preflight.js"></script>
 <script>
 const $ = selector => document.querySelector(selector);
 const state = { offset: 0, limit: 100, request: 0, gradeRequest: 0 };

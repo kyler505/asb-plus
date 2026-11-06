@@ -365,7 +365,7 @@ function renderScheduleResults() {
       const updated = section.updated_at ? new Date(section.updated_at * 1000).toLocaleString() : 'time unknown';
       return `<tr><td>${scheduleEscape(`${section.subject} ${section.course} · ${section.section}`)}</td><td>${scheduleEscape(section.crn)}</td><td>${scheduleEscape(meetings.join(' · '))}</td><td>${scheduleEscape((section.instructors || []).join(', ') || 'Not listed')}</td><td>${publicStatus} · no numeric seats · ${scheduleEscape(section.source)} · updated ${scheduleEscape(updated)}</td></tr>`;
     }).join('');
-    return `<article class="schedule-option"><div class="schedule-option-head"><h3>Schedule ${index + 1} · score ${result.score.toFixed(2)}</h3><button class="button secondary compare-schedule" type="button" data-index="${index}">${selected ? 'Remove from comparison' : 'Compare this schedule'}</button></div><p class="subtext">${scheduleEscape(scheduleExplanation(result))}</p><div class="grade-table-wrap"><table><thead><tr><th>Course</th><th>CRN</th><th>Meeting blocks</th><th>Instructor</th><th>Public status</th></tr></thead><tbody>${classes}</tbody></table></div></article>`;
+    return `<article class="schedule-option"><div class="schedule-option-head"><h3>Schedule ${index + 1} · score ${result.score.toFixed(2)}</h3><div class="card-actions"><button class="button secondary preflight-schedule" type="button" data-index="${index}">Use as primary CRN order</button><button class="button secondary compare-schedule" type="button" data-index="${index}">${selected ? 'Remove from comparison' : 'Compare this schedule'}</button></div></div><p class="subtext">${scheduleEscape(scheduleExplanation(result))}</p><div class="grade-table-wrap"><table><thead><tr><th>Course</th><th>CRN</th><th>Meeting blocks</th><th>Instructor</th><th>Public status</th></tr></thead><tbody>${classes}</tbody></table></div></article>`;
   }).join('');
   scheduleElement('#schedule-more').hidden = showing >= results.length;
   renderScheduleComparison();
@@ -476,7 +476,10 @@ async function generateSchedules() {
     }
     results.sort((left, right) => right.score - left.score || (left.crnKey < right.crnKey ? -1 : left.crnKey > right.crnKey ? 1 : 0));
     scheduleState.results = results;
-    scheduleElement('#schedule-status').textContent = results.length ? `${results.length.toLocaleString()} complete conflict-free schedules ranked. ${invalidSections.length ? `${invalidSections.length} section(s) with internally overlapping blocks were excluded. ` : ''}Any imported classes stayed in this browser.` : 'No conflict-free schedules fit these course choices and stored classes.';
+    window.dispatchEvent(new CustomEvent('asb-preflight-alternatives', { detail: { results } }));
+    scheduleElement('#schedule-status').textContent = results.length
+      ? `${results.length.toLocaleString()} complete conflict-free schedules ranked. ${invalidSections.length ? `${invalidSections.length} section(s) with internally overlapping blocks were excluded. ` : ''}Any imported classes stayed in this browser.`
+      : 'No conflict-free schedules fit these course choices and stored classes.';
     renderScheduleResults();
   } catch (error) {
     if (run === scheduleState.run) scheduleElement('#schedule-status').textContent = `Unable to generate schedules: ${error.message}`;
@@ -529,6 +532,20 @@ scheduleElement('#schedule-more').addEventListener('click', () => {
   renderScheduleResults();
 });
 scheduleElement('#schedule-results').addEventListener('click', event => {
+  const preflightButton = event.target.closest('.preflight-schedule');
+  if (preflightButton) {
+    const index = Number(preflightButton.dataset.index);
+    const result = scheduleState.results[index];
+    if (result) {
+      window.dispatchEvent(new CustomEvent('asb-preflight-select-order', {
+        detail: {
+          index,
+          sections: result.sections.map(section => ({ subject: section.subject, course: section.course, crn: String(section.crn) }))
+        }
+      }));
+    }
+    return;
+  }
   const button = event.target.closest('.compare-schedule');
   if (!button) return;
   const index = Number(button.dataset.index);
