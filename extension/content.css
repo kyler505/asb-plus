@@ -1,1 +1,2 @@
-tr[data-asb-plus-overlay]>td{padding:0!important;border:0!important;background:transparent!important}div[data-asb-plus-overlay]{display:block;contain:content}
+#asb-rebuild-host{all:initial;position:fixed;inset:0;z-index:2147483000;display:block;pointer-events:none}
+html[data-asb-rebuild-active] #scheduler-app main{visibility:hidden!important;pointer-events:none!important}
