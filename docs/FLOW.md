@@ -1,59 +1,52 @@
-# ASB+ guided planning flow
+# Product flow: one course workspace
 
-## First-time Spring 2027 walkthrough
+## Why the guided wizard missed the goal
 
-I followed the app in a clean browser with Spring 2027 selected. I searched for CSCE 482, opened its grade data, then tried to add it to a schedule.
+The four-step flow treated planning as separate destinations. That did not make Schedule Builder, grade history, instructor information, and requirement matches feel like one tool.
 
-1. The first screen starts with a large filter form and 100 sections, not a planning question. Five navigation links look like five separate screens, but they jump through one long page. There is no progress indicator or next step.
-2. The course form shows many choices at once: subject, instructor, day/time, attributes, GPA, difficulty, and A/B rate. The meaning of several choices is not clear to a student who only wants a required course.
-3. Search results show course grades and instructors, but do not let the student choose a section or add a course to a schedule. The separate grade dialog has many historical rows and no next action.
-4. Professor insights is another independent search even though section results already show instructor names. The student must search again to see an instructor profile. Course and professor comparison are separate destinations too.
-5. The schedule screen asks for course codes again. After searching for CSCE 482, the schedule course field was blank. The student must copy or remember the code, then re-enter it.
-6. The schedule screen mixes course entry, an advanced ranking formula, calendar import, degree-specific CRN choices, extension export, schedule results, and ticket-day tools. It gives no clear order for these tasks.
-7. Degree planning is a separate, empty screen with many controls. The student must add program details and enter or import requirement rules before requirement picking can help. The difference between a plan, audit, rule, and official degree decision is easy to miss.
-8. Degree-specific section picking is separate from the course search and schedule builder. The student has to understand CRNs and connect a selected rule to schedule choices without a guided handoff.
-9. Ticket-day tools sit after all schedule results. In the walkthrough, the preflight section was thousands of pixels below the schedule controls. There is no clear handoff from a chosen schedule to the final ticket checklist.
-10. Terms such as CRN, UCC, UCRT, UGDP, A/B rate, mean GPA, and open flag appear without a simple explanation at the decision point. The schedule score formula adds more jargon before the student sees an option.
-11. The same course or instructor can be typed in different places. Some choices persist in browser storage, but search input, generated results, degree data, and schedule choices have different save behavior. The flow does not show what is saved or carried forward.
+1. The student starts in the standalone planner, then opens Schedule Builder and separately installs or opens the extension.
+2. The extension needs a manually exported and imported snapshot before it can show grades or requirement matches.
+3. Finding a course, saving its section, and comparing it with other sections happen in different places.
+4. Grade and instructor context is not the same as Anex.US section history, and the RMP area only said that ratings were disabled.
+5. The student must leave the section decision to search RMP, with no direct path from the instructor name.
+6. A degree plan or audit is private, and its local requirement matches are not automatically carried into the extension.
+7. Open/closed status is easy to mistake for live seats unless the source and limitation appear beside it.
 
-## New path: four guided steps
+## New path: Schedule Builder plus a saved-section workspace
 
-Keep one flow from degree needs to a Howdy handoff. Use a visible four-step progress bar. Each step has one main action, a Back action, and one clear Continue action. Continue preserves state. A student can return to an earlier step to change choices.
+Treat the browser extension as the main course comparison surface, like UT Registration Plus. Keep Howdy and Schedule Builder as the registration systems. The extension adds local course, grade, professor, and requirement context without changing the registration page.
 
-### 1. What do you need?
+### 1. Load course context
 
-- Show Spring 2027 as the selected term.
-- Let the student enter course codes or start from imported degree-plan courses and confirmed requirement rules.
-- Keep degree plan, audit, and rule imports optional and local. Explain that no official rules are preloaded and that this is not an official audit.
-- Show a short course list to carry into section picking. Allow the student to continue with course codes even without degree data.
-- Next action: **Choose sections**.
+- In the ASB+ planner, enter the course codes for sections to compare and export a local extension snapshot.
+- Import the snapshot in the extension popup. It contains public section data, historical grade summaries, and user-authored requirement matches. It does not contain the degree plan, audit, transcript, numeric seats, or RMP data.
+- The extension does not make network requests. The export/import step is still manual and is a known gap.
+- Next action: search a course, instructor, title, or CRN under **Find sections**.
 
-### 2. Choose sections
+### 2. Compare a section where the choice happens
 
-- Show sections for the carried course list. Keep search and less-used filters available without putting every filter in the first view.
-- Each section shows its meeting times, public open/closed flag and source, course grade summary, instructor name and available instructor history, and any confirmed requirement fit with a short reason.
-- Make section selection the action that adds its CRN to the shared schedule list. Show the selected list and its remove controls on this step.
-- Offer requirement-based section picking inline when the student has confirmed rules. Do not send the student to a separate professor screen to understand an instructor.
-- Next action: **Build schedule**.
+- In the extension popup or visible Schedule Builder row, show section number, CRN, meeting times, public status and source, historical course grade summary, instructor grade match, and any requirement fit with its reason.
+- The extension shows a **Search RMP for [instructor]** link. It does not fetch, cache, display, or redistribute RMP ratings or reviews without the permission required by `docs/VISION.md`.
+- Use **Save section** to keep a CRN in the local workspace. Label public open/closed flags as flags, not seat counts. Show a user's own visible status only when the extension can read it on the open page.
+- Next action: save a section or compare another search result.
 
-### 3. Build schedule
+### 3. Check the saved schedule
 
-- Start with the same course and CRN selections from step 2. Do not ask the student to retype them.
-- Put time preferences and an imported weekly schedule behind a clear optional control.
-- Generate conflict-free schedules. Show grade and requirement context beside each ranked option, with a plain-language reason for its rank. Keep comparison inside these options.
-- Let the student choose one schedule as the primary ticket-day list. Do not copy backups into the primary list.
-- Next action: **Prepare for ticket day**.
+- The **Saved** view lists each saved CRN with its meeting times, grade context, public flag, instructor link, and requirement fit.
+- Compare saved meeting blocks and report exact overlaps. If any meeting time is missing, say that the check is incomplete and ask the student to confirm it in Schedule Builder.
+- Refresh by exporting and importing a new snapshot. A public-flag alert appears only after an imported value changes; a visible-status alert appears only after the student's open page visibly changes from closed to open.
+- Next action: resolve any conflict or copy the saved CRNs manually for a Howdy handoff.
 
-### 4. Ticket day
+### 4. Register in Howdy
 
-- Keep the local time-ticket countdown, user-maintained Holds/Action Items, chosen CRN order, reason, and compatible backup CRNs together.
-- Copy only primary CRNs. If clipboard access fails, show a selected, manual-copy list.
-- End with a clear handoff to Howdy or Schedule Builder. Registration, eligibility, and holds remain the student's responsibility in Howdy.
+- Open Howdy or Schedule Builder in a separate tab and confirm live availability, holds, eligibility, and course components.
+- The extension never handles credentials, SSO, Duo, cookies, registration forms, or registration submission. It does not import a cart or promise a CRN deep link.
+- Next action: complete registration yourself in Howdy.
 
-## Hard lines
+## Product limits and next work
 
-- Keep degree plans, audits, checklists, time tickets, and preferences in browser storage. Never send private student data to the server by default.
-- Never handle credentials, SSO, Duo, or cookies. Never submit registration or bypass login.
-- Show only public open/closed flags or visible status from the student's own open Schedule Builder page. Never invent seat counts.
-- Keep RMP disabled until permission and approved use are resolved.
-- Keep course and instructor data sources visible. Make no silent instructor match or requirement match.
+- This is not a replacement for Howdy registration or authenticated Schedule Builder actions.
+- RMP ratings and reviews remain off until written permission and approved use are confirmed. A user-clicked search link is the only RMP integration in this flow.
+- The current manual snapshot transfer separates the planner from the extension. A later design can remove that friction only with explicit user opt-in and a clear local-data boundary.
+- Degree plan and audit imports stay in the planner's local browser storage. Only student-authored requirement matches appear in an exported extension snapshot.
+- Test the extension with a student using a synthetic or public page only. Do not sign in or inspect authenticated Schedule Builder pages without explicit authorization.

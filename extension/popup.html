@@ -3,36 +3,64 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ASB+ overlay</title>
+  <title>ASB+ | Course details</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <main>
-    <header>
-      <p class="eyebrow">Texas A&amp;M</p>
-      <h1>ASB+ overlay</h1>
-      <p>Reads text in visible Schedule Builder rows. It does not access hidden endpoints, change registration forms, read cookies, or submit.</p>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Texas A&amp;M</p>
+        <h1>ASB<span>+</span></h1>
+      </div>
+      <p id="term-label" class="term-label">No section data</p>
     </header>
-    <section aria-labelledby="snapshot-heading">
-      <h2 id="snapshot-heading">Local data snapshot</h2>
-      <p>In ASB+, enter course codes and choose <strong>Download local extension snapshot</strong>. Use <strong>Refresh public sections</strong> first if you need newer public flags, then import the downloaded file here. The extension makes no network requests. The file includes public section and grade summaries plus saved requirement rules, but not your degree plan or audit.</p>
+
+    <nav class="views" aria-label="Course workspace">
+      <button id="browse-tab" type="button" aria-pressed="true">Find sections</button>
+      <button id="saved-tab" type="button" aria-pressed="false">Saved <span id="saved-count">0</span></button>
+    </nav>
+
+    <p id="workspace-status" class="status" role="status" aria-live="polite"></p>
+
+    <section id="browse-view" aria-labelledby="browse-heading">
+      <h2 id="browse-heading">Course details in one place</h2>
+      <p class="intro">Search your imported section list by course, instructor, title, or CRN. Compare meeting times, historical grades, and requirement matches here or on Schedule Builder. RMP is a search link only; ratings are not embedded.</p>
+      <label for="section-search">Search courses and sections</label>
+      <input id="section-search" type="search" autocomplete="off" placeholder="For example, CSCE 482 or a name">
+      <p id="browse-status" class="quiet" role="status" aria-live="polite">Import a local section snapshot to start searching.</p>
+      <div id="section-results" class="cards"></div>
+    </section>
+
+    <section id="saved-view" aria-labelledby="saved-heading" hidden>
+      <h2 id="saved-heading">Saved sections</h2>
+      <p class="intro">Check meeting-time conflicts before you take these CRNs to Howdy. Public flags are not live seat counts.</p>
+      <p id="saved-summary" class="quiet" role="status" aria-live="polite"></p>
+      <div id="saved-list" class="cards"></div>
+    </section>
+
+    <details id="data-settings" class="data-settings">
+      <summary>Update local section data</summary>
+      <p>In the ASB+ planner, search the courses you need and choose <strong>Download local extension snapshot</strong>. Select that file below. It contains public section details, historical grade summaries, and saved requirement rules. It does not contain a degree plan, audit, transcript, seat counts, or RMP ratings.</p>
       <label for="snapshot-file">ASB+ snapshot JSON</label>
       <input id="snapshot-file" type="file" accept="application/json,.json">
-      <button id="import-snapshot" type="button" disabled>Import local snapshot</button>
-      <button id="clear-snapshot" class="secondary" type="button">Remove imported snapshot</button>
+      <button id="import-snapshot" type="button" disabled>Import snapshot</button>
+      <button id="clear-snapshot" class="secondary" type="button" disabled>Remove local data</button>
       <p id="snapshot-status" class="status" role="status" aria-live="polite">No snapshot imported.</p>
       <p id="snapshot-info" class="quiet"></p>
-    </section>
-    <section aria-labelledby="watch-heading">
-      <h2 id="watch-heading">Desired sections</h2>
-      <p class="quiet">Track a visible CRN in Schedule Builder. Alerts appear only after a closed-to-open state change is observed.</p>
-      <ul id="watch-list" class="plain-list"><li>No sections tracked.</li></ul>
-    </section>
-    <section aria-labelledby="alerts-heading">
-      <div class="heading-row"><h2 id="alerts-heading">Recent alerts</h2><button id="clear-alerts" class="secondary small" type="button">Clear</button></div>
-      <ul id="alert-list" class="plain-list"><li>No alerts recorded.</li></ul>
-    </section>
-    <footer>RMP is disabled. Live status comes only from visible page text. Public flags are not seat counts. Registration stays in Howdy.</footer>
+    </details>
+
+    <details id="alerts-details" class="alerts-details">
+      <summary id="alerts-heading">Availability changes <span id="alert-count">0</span></summary>
+      <p class="quiet">Changes appear only after a new snapshot import or a status change visible on your open Schedule Builder page.</p>
+      <ul id="alert-list" class="alert-list"></ul>
+      <button id="clear-alerts" class="secondary" type="button">Clear changes</button>
+    </details>
+
+    <footer>
+      <p>Historical grades are not predictions. RMP opens only when you choose its search link; ASB+ does not fetch ratings or reviews.</p>
+      <p>Confirm live availability and eligibility in <a href="https://howdy.tamu.edu/" target="_blank" rel="noopener noreferrer">Howdy</a> or <a href="https://tamu.collegescheduler.com/" target="_blank" rel="noopener noreferrer">Schedule Builder</a>. ASB+ never registers you.</p>
+    </footer>
   </main>
   <script src="popup.js"></script>
 </body>

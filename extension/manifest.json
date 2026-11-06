@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ASB+ Schedule Builder Overlay",
-  "version": "0.1.0",
-  "description": "Show local course, grade, and requirement notes on visible Schedule Builder rows.",
+  "name": "ASB+ Course and Schedule Workspace",
+  "version": "0.2.0",
+  "description": "Show local course, grade, and requirement details on Schedule Builder and search saved sections.",
   "permissions": ["storage"],
   "host_permissions": ["https://tamu.collegescheduler.com/*"],
   "action": {

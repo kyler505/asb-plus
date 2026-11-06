@@ -10,7 +10,7 @@
 - Registrar records take precedence over matching anex records for the same course, term, and section.
 - Search current-term professors, view historical grade outcomes, correct ambiguous grade-name matches in browser local storage, and compare up to three courses or professors.
 - Professor grade names match automatically only when surname and first initial identify one current professor and one grade name. Users can search and confirm another match.
-- Guided four-step planning: enter course needs, choose sections, build schedules, and prepare for ticket day. The course list and selected sections carry forward in browser storage. Grade and instructor history appear on section cards, and degree-plan work is optional with rule matching in section selection.
+- The standalone planner has a four-step flow for course needs, sections, schedule generation, and ticket-day preparation. Course and section selections carry forward in browser storage. Grade and instructor history appear beside section results; degree work is optional.
 - Generate and rank every conflict-free combination for selected courses. The browser prunes conflicts as it enumerates; it shows the total and paginates results without truncating the set. Users can compare up to three schedules.
 - Each CRN's meeting blocks are checked together. The engine handles weekday overlap, boundary times, time preferences, and TBA meetings. Sections with unknown meeting times remain visible and are labeled as unchecked.
 - Schedule ranking is explainable: 2 times mean historical GPA, plus mean historical A/B percent divided by 25, plus public open flags, minus closed flags and hours outside the preferred time window. Missing grades are not scored. Public flag source and update time are shown; numeric seats are never inferred.
@@ -18,13 +18,16 @@
 - Local deployment currently indexes 20,703 sections and 5,007 courses. These counts include the supplied Spring 2027 data and a public Howdy refresh.
 - No SSO, Duo, credentials, or registration submission. All imported student data stays in the local browser.
 - Keep program and catalog-year details, manually entered or CSV/TSV-imported requirement rules, a separate degree plan and audit, and local backups in browser IndexedDB.
-- Import plan and audit data from PDF, text, CSV, or TSV. Review each parsed row and confirm it before saving. PDF text extraction runs in the browser with vendored PDF.js; scanned or image-only PDFs are not supported.
+- Import plan and audit data from PDF, text, CSV, or TSV. Review each parsed row and confirm it before saving locally. PDF text extraction runs in the browser with vendored PDF.js; scanned or image-only PDFs are not supported.
 - Map imported audit rows to requirement rules by explicit confirmation. A row counts only when it is marked Met and matches the rule's entered course, section, attribute, and grade conditions. Plan state and audit completion stay separate.
 - Mark a plan approved locally, lock it, and retain an approved snapshot when starting a revision. This is a local note and is not verified by Howdy.
 - Find public sections for a confirmed rule using its course codes and entered section constraints. Add matching CRNs to local schedule choices; stale CRNs are reported, not silently replaced.
 - Plan, audit, requirement, and profile data stay in IndexedDB. The app does not send these records to its server.
-- The unpacked Manifest V3 extension imports a local snapshot of public sections, course/instructor grade summaries, and user-authored requirement rules. It does not include the private degree plan, audit, or transcript. The extension reads visible rendered Schedule Builder rows, adds an inline panel with public status, grade context, requirement fit, and conflicts among tracked CRNs, and stores tracked sections and alerts in extension-local storage.
-- Alerts appear for an observed visible closed/full-to-open change and for public open/closed flag changes between manual snapshot imports. Use ASB+'s public refresh before exporting when you need newer public flags. The extension makes no network requests and does not reload, modify, or submit the Schedule Builder page.
+- The unpacked Manifest V3 extension imports public sections, historical course and instructor grades, and user-authored requirement matches from a local snapshot. It does not include a degree plan, audit, transcript, numeric seats, or RMP data.
+- The extension popup now searches imported sections by course, instructor, title, or CRN. It shows meeting times, source and freshness, public flags, historical grade context, instructor grade matches, user-clicked RMP search links, requirement fits, and conflicts with saved sections.
+- Save sections from the popup or a visible Schedule Builder row. The Saved view compares meeting-time conflicts and preserves section alerts in extension-local storage.
+- The in-page overlay adds meeting times, grade and requirement context, instructor grade summaries, a direct RMP search link, a visible status observation, conflict context, and a save action to rows with a visible five-digit CRN.
+- Alerts appear for an observed visible closed/full-to-open change and for public open/closed flag changes between manual snapshot imports. The extension makes no network requests and does not reload, modify, or submit the Schedule Builder page.
 - The extension parser requires a visible row with an identifiable five-digit CRN and explicit open/closed wording. It was tested on a synthetic page, not on a signed-in Schedule Builder page, so support for the live site's DOM and wording is not verified.
 - Preflight lets the user enter a registration-window time and IANA time zone. It shows a local countdown, handles elapsed times, and rejects local times that do not exist during a daylight-saving clock change.
 - The user can maintain a local Holds/Action Items checklist with editable completion state. ASB+ does not read Howdy to detect or verify holds.
@@ -34,7 +37,9 @@
 
 ## Stubbed or not included
 
-- RMP ratings and reviews are disabled. No RMP requests or redistribution occur. Permission and approved use remain unresolved.
+- RMP ratings and reviews are not embedded. The extension only opens an RMP search when the student clicks an instructor link. Automated access and redistribution remain disabled until permission and approved use are resolved.
+- Extension section data still needs a manual snapshot export from the planner and import into the popup. There is no automatic sync.
+- The extension's degree context includes only requirement matches exported by the planner. Private plan, audit, and transcript data are not copied to the extension.
 - The public section data does not reliably link separate lecture and lab CRNs. ASB+ does not guess the pairings; confirm separate components in Howdy.
 - Schedule ranking does not use walking distance because reliable campus paths are not available.
 - Built-in catalog program requirements, automatic Howdy UGDP/audit sync, and official audit or eligibility checks. Users must enter or import rules for their program and catalog year.
@@ -61,11 +66,12 @@ cargo run --release -- import-grades /path/to/report.pdf
 
 The importer also accepts CSV. Use `cargo run --release -- refresh-howdy` to refresh public sections from the command line.
 
-In ASB+, enter course codes and choose **Download local extension snapshot**. Import the JSON in the extension popup. Refresh public sections first when you want updated public flags. Track desired CRNs from visible Schedule Builder rows; the popup lists local alerts and tracked sections.
+In ASB+, enter course codes and choose **Download local extension snapshot**. Import that JSON in the extension popup. Refresh public sections first when you need a newer public flag. Use **Find sections** to search the snapshot, save CRNs, and open RMP search links for instructors. Use **Saved** to check meeting-time conflicts. The extension shows RMP links only; it does not fetch or display ratings.
 
 The live Schedule Builder parser has not been validated on its signed-in page. It reads visible rendered row text only and only recognizes rows with a five-digit CRN and explicit open/closed wording.
 
 ## Next steps
 
-1. Resolve permission and approved use before considering RMP.
-2. Test this flow with first-time students, especially course selection, degree imports, and the ticket-day checklist.
+1. Remove the manual snapshot export/import step without expanding extension permissions or sending degree data to the server.
+2. Resolve permission and approved use before considering RMP ratings or reviews.
+3. Test the extension with students on a synthetic or public Schedule Builder-like page, then verify the visible-page parser only with authorized access.

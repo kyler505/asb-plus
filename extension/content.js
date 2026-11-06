@@ -68,9 +68,9 @@
   }
 
   function trackedConflictText(section, watchCrns, snapshot) {
-    if (!watchCrns.includes(section.crn)) return 'Track this section to compare it with other desired CRNs.';
+    if (!watchCrns.includes(section.crn)) return 'Save this section to compare it with other saved sections.';
     const otherCrns = watchCrns.filter(crn => crn !== section.crn);
-    if (!otherCrns.length) return 'No other desired CRNs are tracked.';
+    if (!otherCrns.length) return 'No other sections are saved.';
     if (!snapshot) return 'Conflict check is unavailable until a local section snapshot is imported.';
     const lookup = new Map(snapshot.sections.map(item => [String(item.crn), item]));
     const matches = [];
@@ -83,10 +83,10 @@
       }
       if (section.meetings.some(left => other.meetings.some(right => meetingConflicts(left, right)))) matches.push(crn);
     }
-    if (matches.length) return `Meeting-time conflict with tracked CRN ${matches.join(', ')}.`;
+    if (matches.length) return `Meeting-time conflict with saved CRN ${matches.join(', ')}.`;
     return incomplete
-      ? 'No known overlap found, but some tracked meeting times are missing from the local snapshot.'
-      : `No meeting-time overlap with ${otherCrns.length} other tracked CRN(s) in this local snapshot.`;
+      ? 'No known overlap found, but some saved meeting times are missing from the local snapshot.'
+      : `No meeting-time overlap with ${otherCrns.length} other saved section(s) in this local snapshot.`;
   }
 
   function makeElement(tag, className, content) {
@@ -96,10 +96,40 @@
     return node;
   }
 
+  function addRmpSearchLink(panel, name) {
+    const url = new URL('https://www.ratemyprofessors.com/search/professors/1003');
+    url.searchParams.set('q', name);
+    const link = document.createElement('a');
+    link.href = url.toString();
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = `Search RMP for ${name}`;
+    link.style.color = '#500000';
+    link.style.fontWeight = '700';
+    panel.append(link);
+  }
+
+  function meetingSummary(section) {
+    if (!section.meetings?.length) return section.unknownMeetingBlocks
+      ? 'Meeting times are missing from this snapshot. Confirm them in Schedule Builder.'
+      : 'No meeting times are listed in this snapshot.';
+    const days = { M: 'Mon', T: 'Tue', W: 'Wed', R: 'Thu', F: 'Fri', S: 'Sat', U: 'Sun' };
+    const clock = minutes => {
+      const hour = Math.floor(minutes / 60) % 24;
+      const suffix = hour >= 12 ? 'PM' : 'AM';
+      return `${hour % 12 || 12}:${String(minutes % 60).padStart(2, '0')} ${suffix}`;
+    };
+    const blocks = section.meetings.map(meeting =>
+      `${[...meeting.days].map(day => days[day] || day).join(' ')} ${clock(meeting.start)}–${clock(meeting.end)}${meeting.building ? ` · ${meeting.building}` : ''}${meeting.room ? ` ${meeting.room}` : ''}`);
+    if (section.unknownMeetingBlocks) blocks.push('Other meeting times are not listed');
+    return blocks.join(' | ');
+  }
+
   function addSectionInfo(panel, section, row, watchCrns, snapshot) {
     const title = section ? `${section.courseCode} · Section ${section.section} · CRN ${section.crn}` : `Visible CRN ${row.crn}`;
     panel.append(makeElement('strong', 'heading', title));
     if (section?.title) panel.append(makeElement('p', '', section.title));
+    if (section) panel.append(makeElement('p', '', meetingSummary(section)));
     const observed = new Date().toLocaleString();
     panel.append(makeElement('p', 'source', row.status
       ? `Visible Schedule Builder status: ${row.status === 'open' ? 'Open/available' : 'Full/closed'} · observed ${observed}.`
@@ -116,12 +146,16 @@
         ? `${grades.join(' · ')} · sources: ${(history.sources || []).join(', ') || 'not listed'} · updated ${formatTime(history.updatedAt)}.`
         : 'No historical course-grade summary is available in this snapshot.'));
       if (section.professors?.length) {
-        const details = section.professors.map(item => item.averageGpa == null
-          ? `${item.name}: no exact historical grade-name match`
-          : `${item.name}: historical GPA ${item.averageGpa.toFixed(2)} from ${item.records} exact-name record(s)`);
-        panel.append(makeElement('p', '', `Current instructors: ${details.join('; ')}. RMP ratings are disabled.`));
+        for (const item of section.professors) {
+          const details = item.averageGpa == null
+            ? `${item.name}: no exact historical grade-name match.`
+            : `${item.name}: historical GPA ${item.averageGpa.toFixed(2)} from ${item.records} exact-name record(s).`;
+          panel.append(makeElement('p', '', details));
+          addRmpSearchLink(panel, item.name);
+        }
+        panel.append(makeElement('p', 'source', 'RMP ratings and reviews are not shown here. Use a search link to view RMP directly.'));
       } else {
-        panel.append(makeElement('p', '', 'Instructor details are not listed in this snapshot. RMP ratings are disabled.'));
+        panel.append(makeElement('p', '', 'Instructor details are not listed in this snapshot. RMP ratings are not embedded.'));
       }
       const fits = section.requirementFits || [];
       panel.append(makeElement('p', 'section-label', fits.length ? 'Requirement fit' : 'Requirement fit not listed'));
@@ -131,13 +165,13 @@
       panel.append(makeElement('p', 'conflict', trackedConflictText(section, watchCrns, snapshot)));
     } else {
       panel.append(makeElement('p', '', snapshot
-        ? 'This CRN is not in the imported snapshot. Add its course to Courses to schedule in ASB+ and import a new file for historical and requirement details.'
+        ? 'This CRN is not in the imported snapshot. Add its course to the ASB+ extension snapshot and import a fresh file for grade and requirement details.'
         : 'Import a local ASB+ snapshot for historical grade, instructor, and requirement details.'));
     }
   }
 
   function addWatchButton(panel, crn, watchCrns) {
-    const button = makeElement('button', 'watch-button', watchCrns.includes(crn) ? 'Stop tracking this CRN' : 'Track this CRN');
+    const button = makeElement('button', 'watch-button', watchCrns.includes(crn) ? 'Remove saved section' : 'Save section');
     button.type = 'button';
     button.setAttribute('aria-pressed', String(watchCrns.includes(crn)));
     button.addEventListener('click', event => {
@@ -227,7 +261,7 @@
     const list = root.querySelector('.notices');
     const card = document.createElement('div');
     card.className = 'notice';
-    card.append(makeElement('strong', '', alert.kind === 'visible-transition' ? 'Visible seat status changed' : 'Public open flag changed'));
+    card.append(makeElement('strong', '', alert.kind === 'visible-transition' ? 'Visible Schedule Builder status changed' : 'Public open flag changed'));
     card.append(makeElement('span', '', alert.message));
     const dismiss = makeElement('button', 'dismiss', 'Dismiss');
     dismiss.type = 'button';
@@ -253,7 +287,7 @@
         const alert = {
           id: `${Date.now()}-${row.crn}-${Math.random().toString(16).slice(2)}`,
           kind: 'visible-transition', crn: row.crn,
-          message: `Tracked CRN ${row.crn} changed from full/closed to open in the visible Schedule Builder page. Observed ${new Date().toLocaleString()}.`,
+          message: `Saved CRN ${row.crn} changed from full/closed to open in the visible Schedule Builder page. Observed ${new Date().toLocaleString()}.`,
           observedAt: new Date().toISOString()
         };
         newAlerts.push(alert);
