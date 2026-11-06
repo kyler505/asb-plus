@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ASB+ overlay</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Texas A&amp;M</p>
+      <h1>ASB+ overlay</h1>
+      <p>Reads text in visible Schedule Builder rows. It does not access hidden endpoints, change registration forms, read cookies, or submit.</p>
+    </header>
+    <section aria-labelledby="snapshot-heading">
+      <h2 id="snapshot-heading">Local data snapshot</h2>
+      <p>In ASB+, enter course codes and choose <strong>Download local extension snapshot</strong>. Use <strong>Refresh public sections</strong> first if you need newer public flags, then import the downloaded file here. The extension makes no network requests. The file includes public section and grade summaries plus saved requirement rules, but not your degree plan or audit.</p>
+      <label for="snapshot-file">ASB+ snapshot JSON</label>
+      <input id="snapshot-file" type="file" accept="application/json,.json">
+      <button id="import-snapshot" type="button" disabled>Import local snapshot</button>
+      <button id="clear-snapshot" class="secondary" type="button">Remove imported snapshot</button>
+      <p id="snapshot-status" class="status" role="status" aria-live="polite">No snapshot imported.</p>
+      <p id="snapshot-info" class="quiet"></p>
+    </section>
+    <section aria-labelledby="watch-heading">
+      <h2 id="watch-heading">Desired sections</h2>
+      <p class="quiet">Track a visible CRN in Schedule Builder. Alerts appear only after a closed-to-open state change is observed.</p>
+      <ul id="watch-list" class="plain-list"><li>No sections tracked.</li></ul>
+    </section>
+    <section aria-labelledby="alerts-heading">
+      <div class="heading-row"><h2 id="alerts-heading">Recent alerts</h2><button id="clear-alerts" class="secondary small" type="button">Clear</button></div>
+      <ul id="alert-list" class="plain-list"><li>No alerts recorded.</li></ul>
+    </section>
+    <footer>RMP is disabled. Live status comes only from visible page text. Public flags are not seat counts. Registration stays in Howdy.</footer>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

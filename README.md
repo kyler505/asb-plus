@@ -46,4 +46,7 @@ PDF import requires Poppler's `pdftotext` command. The command also accepts a CS
 - A section's meeting blocks are checked together. The public data does not reliably link separate lecture and lab CRNs, so the app does not guess those pairs. Confirm them in Howdy.
 - RMP is disabled. Ratings and reviews are not requested or shown. Walking distance is not scored without reliable campus route data.
 - No SSO, Duo, credentials, enrollment submission, or private student data leaves the browser.
-- The Schedule Builder extension, visible-page seat alerts, Holds/Action Items, time-ticket countdown, CRN ordering, and backups remain planned. See `docs/SUMMARY.md`.
+- Install the unpacked Manifest V3 extension from `extension/` in Chrome or Chromium at `chrome://extensions`. In ASB+, enter course codes, download the local extension snapshot, then import it in the extension popup. The extension makes no network requests and stores imported data, tracked CRNs, and alerts in extension-local storage.
+- Use **Refresh public sections** in ASB+ before exporting to include refreshed public open/closed flags. The extension can alert on public flag changes between imports and on visible closed/full-to-open changes in Schedule Builder. It never polls or reloads the authenticated page.
+- The extension reads only visible rendered row text and requires an identifiable five-digit CRN plus explicit open/closed wording. The parser has only been smoke-tested against a synthetic page, not a signed-in Schedule Builder page. It may not recognize other layouts or status wording.
+- Holds/Action Items, time-ticket countdown, CRN ordering, and backups remain planned. See `docs/SUMMARY.md`.

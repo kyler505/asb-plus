@@ -22,6 +22,9 @@
 - Mark a plan approved locally, lock it, and retain an approved snapshot when starting a revision. This is a local note and is not verified by Howdy.
 - Find public sections for a confirmed rule using its course codes and entered section constraints. Add matching CRNs to local schedule choices; stale CRNs are reported, not silently replaced.
 - Plan, audit, requirement, and profile data stay in IndexedDB. The app does not send these records to its server.
+- The unpacked Manifest V3 extension imports a local snapshot of public sections, course/instructor grade summaries, and user-authored requirement rules. It does not include the private degree plan, audit, or transcript. The extension reads visible rendered Schedule Builder rows, adds an inline panel with public status, grade context, requirement fit, and conflicts among tracked CRNs, and stores tracked sections and alerts in extension-local storage.
+- Alerts appear for an observed visible closed/full-to-open change and for public open/closed flag changes between manual snapshot imports. Use ASB+'s public refresh before exporting when you need newer public flags. The extension makes no network requests and does not reload, modify, or submit the Schedule Builder page.
+- The extension parser requires a visible row with an identifiable five-digit CRN and explicit open/closed wording. It was tested on a synthetic page, not on a signed-in Schedule Builder page, so support for the live site's DOM and wording is not verified.
 
 ## Stubbed or not included
 
@@ -30,13 +33,13 @@
 - Schedule ranking does not use walking distance because reliable campus paths are not available.
 - Built-in catalog program requirements, automatic Howdy UGDP/audit sync, and official audit or eligibility checks. Users must enter or import rules for their program and catalog year.
 - OCR for scanned PDFs. Plan and audit PDF text extraction runs locally in the browser, but requires extractable text.
-- The Schedule Builder extension, visible-page seat alerts, Holds/Action Items, time-ticket countdown, CRN ordering, and backups.
+- Holds/Action Items, time-ticket countdown, CRN ordering, and backups.
 - Public Howdy data does not provide numeric seat counts. Confirm availability, eligibility, and registration in Howdy.
 - The supplied `data/s27.json` and local SQLite database are not committed. Grade imports are local and must be repeated on another installation.
 
 ## Run
 
-Requires Rust, Cargo, and the supplied `data/s27.json`. Poppler is optional; it is needed only for command-line Registrar PDF imports:
+Requires Rust, Cargo, and the supplied `data/s27.json`. Poppler is optional; it is needed only for command-line Registrar PDF imports. To install the Schedule Builder extension, open `chrome://extensions`, enable developer mode, and choose **Load unpacked** with this repo's `extension/` directory.
 
 ```sh
 cargo run --release
@@ -52,8 +55,11 @@ cargo run --release -- import-grades /path/to/report.pdf
 
 The importer also accepts CSV. Use `cargo run --release -- refresh-howdy` to refresh public sections from the command line.
 
+In ASB+, enter course codes and choose **Download local extension snapshot**. Import the JSON in the extension popup. Refresh public sections first when you want updated public flags. Track desired CRNs from visible Schedule Builder rows; the popup lists local alerts and tracked sections.
+
+The live Schedule Builder parser has not been validated on its signed-in page. It reads visible rendered row text only and only recognizes rows with a five-digit CRN and explicit open/closed wording.
+
 ## Next steps
 
-1. Add the minimal-permission Schedule Builder extension and visible-page seat alerts.
-2. Add local Holds/Action Items, time-ticket countdown, CRN order, and backups.
-3. Resolve permission and approved use before considering RMP.
+1. Add local Holds/Action Items, time-ticket countdown, ordered CRNs, and backups.
+2. Resolve permission and approved use before considering RMP.

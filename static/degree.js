@@ -523,6 +523,94 @@ function sectionInRange(section, range) {
   return Number.isFinite(number) && parts.some(part => number >= part.start && number <= part.end);
 }
 
+function extensionNameKey(value) {
+  return String(value || '').replace(/\s*\([^)]*\)/g, '').replace(/[.,]/g, ' ').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function extensionInstructorSummary(name, rows) {
+  const matches = rows.filter(row => extensionNameKey(row.instructor) === extensionNameKey(name));
+  const gpas = matches.map(row => row.gpa == null || row.gpa === '' ? NaN : Number(row.gpa)).filter(value => Number.isFinite(value) && value >= 0 && value <= 4);
+  return { name, records: matches.length, averageGpa: gpas.length ? gpas.reduce((sum, value) => sum + value, 0) / gpas.length : null };
+}
+
+async function exportExtensionSnapshot() {
+  const button = degreeElement('#export-extension-snapshot');
+  const status = degreeElement('#extension-export-status');
+  button.disabled = true;
+  status.textContent = 'Preparing public section and grade data locally...';
+  try {
+    const term = degreeElement('#term').value;
+    const codes = [...new Set(scheduleElement('#schedule-courses').value.split(/[\n,]/).map(normalizeCourseCode).filter(Boolean))];
+    if (!term) throw Error('Choose a term first.');
+    if (!codes.length) throw Error('Enter at least one course code in Courses to schedule.');
+    const rules = degreeState.data.rules.map(rule => ({
+      name: rule.name, kind: rule.kind, courseCodes: ruleCodes(rule), sectionRange: rule.sectionRange,
+      attribute: rule.attribute, track: rule.track, minimumGrade: rule.minimumGrade,
+      prerequisites: rule.prerequisites, catalogYear: rule.catalogYear, source: rule.source
+    }));
+    const groups = await Promise.all(codes.map(async code => {
+      const match = code.match(/^([A-Z]{2,8})\s+([A-Z0-9]+)$/);
+      if (!match) throw Error(`Use a subject and course number for ${code}.`);
+      const params = new URLSearchParams({ subject: match[1], course: match[2] });
+      const [sections, response] = await Promise.all([
+        fetchCourseSections(term, code),
+        fetch(`/api/grades?${params}`)
+      ]);
+      if (!response.ok) throw Error(`Grade lookup failed for ${code} (${response.status}).`);
+      const gradeRows = (await response.json()).grades || [];
+      return { code, sections, gradeRows };
+    }));
+    const gradeRowsByCode = new Map(groups.map(group => [group.code, group.gradeRows]));
+    const sections = groups.flatMap(group => group.sections.map(section => {
+      const code = `${section.subject} ${section.course}`;
+      const requirementFits = rules.filter(rule => rule.courseCodes.includes(code)).map(rule => {
+        const reasons = [`Course code ${code} matches.`];
+        let matches = true;
+        if (rule.sectionRange) {
+          const valid = sectionInRange(section.section, rule.sectionRange);
+          reasons.push(valid ? `Section ${section.section} matches ${rule.sectionRange}.` : `Section ${section.section} does not match ${rule.sectionRange}.`);
+          matches &&= valid;
+        }
+        if (rule.attribute) {
+          const valid = String(section.attributes || '').toLowerCase().includes(rule.attribute.toLowerCase());
+          reasons.push(valid ? `Section attributes include ${rule.attribute}.` : `Section attributes do not include ${rule.attribute}.`);
+          matches &&= valid;
+        }
+        const review = [rule.minimumGrade ? `minimum grade ${rule.minimumGrade}` : '', rule.prerequisites ? `prerequisites: ${rule.prerequisites}` : ''].filter(Boolean);
+        if (review.length) reasons.push(`Review ${review.join(' and ')} separately; they are not checked automatically.`);
+        return { name: rule.name, kind: rule.kind, track: rule.track, matches, reason: reasons.join(' ') };
+      });
+      const gradeRows = gradeRowsByCode.get(code) || [];
+      const gradeSources = [...new Set(gradeRows.map(row => row.source).filter(Boolean))].sort();
+      const gradeUpdatedAt = gradeRows.reduce((latest, row) => Math.max(latest, Number(row.fetched_at) || 0), 0) || null;
+      return {
+        crn: String(section.crn), term, courseCode: code, section: String(section.section), title: section.title,
+        scheduleType: section.schedule_type, attributes: section.attributes, openFlag: section.open_flag,
+        source: section.source, updatedAt: section.updated_at, meetings: section.meetings,
+        unknownMeetingBlocks: section.unknownMeetingBlocks || 0,
+        historical: { averageGpa: section.average_gpa, abRate: section.ab_rate, records: section.grade_sections, sources: gradeSources, updatedAt: gradeUpdatedAt },
+        professors: (Array.isArray(section.instructors) ? section.instructors : []).map(name => extensionInstructorSummary(name, gradeRows)),
+        requirementFits
+      };
+    }));
+    const payload = {
+      format: 'asb-plus-schedule-overlay', version: 1, exportedAt: new Date().toISOString(), term,
+      note: 'Public section and historical grade snapshot with user-entered requirement rules. No degree plan, audit, transcript, numeric seats, or RMP data.',
+      sections, rules
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url; link.download = `asb-plus-overlay-${term}.json`;
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    status.textContent = `Downloaded ${sections.length} public sections for ${codes.join(', ')}. Import this file in the extension popup.`;
+  } catch (error) {
+    status.textContent = `Unable to export extension data: ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function createRule(values) {
   const codes = courseCodes(values.courseCodes);
   if (!values.name.trim()) throw Error('Enter a requirement or bucket name.');
@@ -818,6 +906,7 @@ function attachDegreeEvents() {
     degreeElement('#schedule-tools').scrollIntoView({ behavior: 'smooth', block: 'start' });
     degreeElement('#schedule-courses').focus();
   });
+  degreeElement('#export-extension-snapshot').addEventListener('click', exportExtensionSnapshot);
   degreeElement('#export-degree-data').addEventListener('click', () => {
     const payload = { format: 'asb-degree-workspace', schemaVersion: 1, exportedAt: new Date().toISOString(), state: degreeState.data };
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
