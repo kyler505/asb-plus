@@ -110,7 +110,10 @@ function instructorSummary(name, rows) {
   const key = nameKey(name);
   const matches = rows.filter(row => nameKey(row.instructor) === key);
   const gpas = matches.map(row => row.gpa == null || row.gpa === '' ? NaN : Number(row.gpa)).filter(value => Number.isFinite(value) && value >= 0 && value <= 4);
-  return { name, records: matches.length, averageGpa: gpas.length ? gpas.reduce((sum, value) => sum + value, 0) / gpas.length : null };
+  const sources = [...new Set(matches.map(row => row.source).filter(Boolean))].sort();
+  const terms = [...new Set(matches.map(row => `${row.semester || ''} ${row.year || ''}`.trim()).filter(Boolean))].sort();
+  const updatedAt = matches.reduce((latest, row) => Math.max(latest, Number(row.fetched_at) || 0), 0) || null;
+  return { name, records: matches.length, gpaRecords: gpas.length, averageGpa: gpas.length ? gpas.reduce((sum, value) => sum + value, 0) / gpas.length : null, sources, terms, updatedAt };
 }
 
 function parseSectionRange(range) {
@@ -162,6 +165,9 @@ function normalizeSection(raw, gradeRows, rules) {
     section: String(raw.section || ''),
     title: String(raw.title || ''),
     scheduleType: String(raw.schedule_type || ''),
+    instructionType: String(raw.instruction_type || ''),
+    site: String(raw.site || ''),
+    campus: String(raw.campus || ''),
     attributes: String(raw.attributes || ''),
     openFlag: raw.open_flag === 'Y' || raw.open_flag === 'N' ? raw.open_flag : '',
     source: String(raw.source || ''),
@@ -173,6 +179,7 @@ function normalizeSection(raw, gradeRows, rules) {
       abRate: Number.isFinite(Number(raw.ab_rate)) && raw.ab_rate != null ? Number(raw.ab_rate) : null,
       records: Number(raw.grade_sections) || 0,
       sources,
+      terms: [...new Set((gradeRows || []).map(row => `${row.semester || ''} ${row.year || ''}`.trim()).filter(Boolean))].sort(),
       updatedAt: gradeUpdatedAt
     },
     professors: (Array.isArray(raw.instructors) ? raw.instructors : []).slice(0, 30).map(name => instructorSummary(name, gradeRows || [])),
@@ -200,12 +207,18 @@ async function gradesFor(subject, course) {
 async function enrich(rawSections) {
   const rules = await readRules();
   const codes = [...new Set(rawSections.map(raw => `${String(raw.subject || '').toUpperCase()} ${String(raw.course || '')}`.trim()))];
-  const gradeEntries = await Promise.all(codes.map(async code => {
-    const [subject, course] = code.split(' ');
-    try {
-      return [code, await gradesFor(subject, course)];
-    } catch {
-      return [code, []];
+  const gradeEntries = [];
+  let nextCode = 0;
+  const workerCount = Math.min(8, codes.length);
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextCode < codes.length) {
+      const code = codes[nextCode++];
+      const [subject, course] = code.split(' ');
+      try {
+        gradeEntries.push([code, await gradesFor(subject, course)]);
+      } catch {
+        gradeEntries.push([code, []]);
+      }
     }
   }));
   const gradesByCode = new Map(gradeEntries);
@@ -243,18 +256,29 @@ async function cachedSections(crns, term) {
 async function fetchMissing(crns, term) {
   const wanted = [...new Set(crns.map(String).filter(crn => /^\d{5}$/.test(crn)))];
   if (!wanted.length) return [];
-  const results = await Promise.all(wanted.map(async crn => {
-    try {
-      const data = await api('/api/sections', { term, q: crn, limit: 10 });
-      return (data.sections || []).find(section => String(section.crn) === crn) || null;
-    } catch {
-      return null;
+  const raw = [];
+  for (let index = 0; index < wanted.length; index += 50) {
+    const batch = wanted.slice(index, index + 50);
+    const data = await api('/api/sections', { term, crns: batch.join(',') });
+    if (String(data.term) !== String(term) || !Array.isArray(data.sections)) throw Error('The backend returned an invalid exact CRN lookup response.');
+    const requested = new Set(batch);
+    for (const section of data.sections) {
+      const crn = String(section.crn || '');
+      if (!requested.has(crn) || String(section.term) !== String(term)) throw Error('The backend returned a section outside the requested term and CRN set.');
+      raw.push(section);
     }
-  }));
-  const raw = results.filter(Boolean);
+  }
   const sections = await enrich(raw);
   await cacheSections(sections);
   return sections;
+}
+async function checkSectionLookup(term) {
+  const data = await api('/api/sections', { term, crns: '00000' });
+  if (String(data.term) !== String(term) || !Array.isArray(data.sections) ||
+      data.sections.some(section => String(section.term) !== String(term) || String(section.crn) !== '00000')) {
+    throw Error('The backend does not provide the required term-scoped exact CRN lookup.');
+  }
+  return { ok: true, term: String(term) };
 }
 
 async function latestTerm() {
@@ -300,24 +324,36 @@ async function connection() {
 
 async function searchSections(message) {
   const query = String(message.query || '').trim().slice(0, 120);
-  if (!query) return { ok: true, sections: [], term: await latestTerm() };
-  const term = message.term || await latestTerm();
-  const params = { term, limit: Math.min(60, Math.max(1, Number(message.limit) || 40)) };
-  const code = query.match(/^([A-Za-z]{2,8})\s*(\d{2,5})$/);
-  if (code) {
-    params.subject = code[1].toUpperCase();
-    params.course = code[2];
-  } else if (/^\d{5}$/.test(query)) {
-    params.q = query;
-  } else if (/^[A-Za-z]{2,8}$/.test(query) && message.subject) {
-    params.subject = query.toUpperCase();
+  const term = String(message.term || await latestTerm());
+  if (!query) return { ok: true, sections: [], term, hasMore: false, truncated: false };
+  if (message.searchMode !== 'attribute' && /^\d{5}$/.test(query)) {
+    const fetched = await fetchMissing([query], term);
+    const sections = ['Y', 'N'].includes(message.open) ? fetched.filter(section => section.openFlag === message.open) : fetched;
+    return { ok: true, sections, term, query, hasMore: false, truncated: false };
+  }
+  const limit = Math.min(250, Math.max(1, Math.floor(Number(message.limit) || 40)));
+  const offset = Math.max(0, Math.floor(Number(message.offset) || 0));
+  const params = { term, limit, offset };
+  if (message.open === 'Y' || message.open === 'N') params.open = message.open;
+  if (message.searchMode === 'attribute') {
+    params.attribute = query;
   } else {
-    params.q = query;
+    const code = query.match(/^([A-Za-z]{2,8})\s*(\d{2,5})$/);
+    if (code) {
+      params.subject = code[1].toUpperCase();
+      params.course = code[2];
+    } else if (/^[A-Za-z]{2,8}$/.test(query) && message.subject) {
+      params.subject = query.toUpperCase();
+    } else {
+      params.q = query;
+    }
   }
   const data = await api('/api/sections', params);
-  const sections = await enrich(Array.isArray(data.sections) ? data.sections : []);
+  const raw = Array.isArray(data.sections) ? data.sections : [];
+  if (raw.some(section => String(section.term) !== term)) throw Error('The backend returned sections outside the requested term.');
+  const sections = await enrich(raw);
   await cacheSections(sections);
-  return { ok: true, sections, term, query };
+  return { ok: true, sections, term, query, hasMore: raw.length === limit, truncated: limit === 250 && raw.length === 250 };
 }
 
 async function sectionsFor(crns, requestedTerm) {
@@ -362,6 +398,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     switch (message?.type) {
       case 'asb-connect':
         return connection();
+      case 'asb-check-section-lookup':
+        return checkSectionLookup(String(message.term || ''));
       case 'asb-search':
         return searchSections(message);
       case 'asb-sections':
