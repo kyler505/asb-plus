@@ -8,16 +8,20 @@
 - Manual public Howdy refresh. It can take up to 90 seconds and is limited to one request every six hours. Failed refreshes preserve existing data.
 - Historical grade distributions by course, instructor, section, and term. The app can query anex.us with a 24-hour cache and import TAMU Registrar Grade Distribution PDFs or CSV files. PDF import requires Poppler's `pdftotext`.
 - Registrar records take precedence over matching anex records for the same course, term, and section.
-- Search current-term professors, view section-level historical grade outcomes, and compare up to three courses or professors side by side.
-- Professor grade names match automatically only when surname and first initial identify one current professor and one grade name. Users can search and confirm another match; corrections stay in browser local storage.
-- Compare screens show sources and sample counts. Mean GPA is an unweighted mean of grade-section GPAs. A/B share uses A-F counts; Q is excluded. Missing data is not treated as zero.
+- Search current-term professors, view historical grade outcomes, correct ambiguous grade-name matches in browser local storage, and compare up to three courses or professors.
+- Professor grade names match automatically only when surname and first initial identify one current professor and one grade name. Users can search and confirm another match.
+- Generate and rank every conflict-free combination for selected courses. The browser prunes conflicts as it enumerates; it shows the total and paginates results without truncating the set. Users can compare up to three schedules.
+- Each CRN's meeting blocks are checked together. The engine handles weekday overlap, boundary times, time preferences, and TBA meetings. Sections with unknown meeting times remain visible and are labeled as unchecked.
+- Schedule ranking is explainable: 2 times mean historical GPA, plus mean historical A/B percent divided by 25, plus public open flags, minus closed flags and hours outside the preferred time window. Missing grades are not scored. Public flag source and update time are shown; numeric seats are never inferred.
+- Import weekly ICS/CSV or paste typed schedule blocks to find schedules that fit. Imported meetings and time preferences stay in browser local storage and are not sent to the server. ICS events without weekly recurrence are skipped and reported.
 - Local deployment currently indexes 20,703 sections and 5,007 courses. These counts include the supplied Spring 2027 data and a public Howdy refresh.
-- No SSO, Duo, credentials, private student imports, or registration submission.
+- No SSO, Duo, credentials, private schedule imports, or registration submission.
 
 ## Stubbed or not included
 
 - RMP ratings and reviews are disabled. No RMP requests or redistribution occur. Permission and approved use remain unresolved.
-- Schedule generation, schedule comparisons, and local schedule-fit imports.
+- The public section data does not reliably link separate lecture and lab CRNs. ASB+ does not guess the pairings; confirm separate components in Howdy.
+- Schedule ranking does not use walking distance because reliable campus paths are not available.
 - UGDP and degree-audit imports, catalog requirement matching, and requirement-aware course picking.
 - Browser extension, visible-page seat alerts, Holds/Action Items, time-ticket countdown, CRN ordering, and backups.
 - Public Howdy data does not provide numeric seat counts. Confirm availability, eligibility, and registration in Howdy.
@@ -43,7 +47,7 @@ The importer also accepts CSV. Use `cargo run --release -- refresh-howdy` to ref
 
 ## Next steps
 
-1. Build conflict-free schedules and local schedule fit.
-2. Add browser-local degree planning, requirement matching, and the Schedule Builder extension.
-3. Add local registration preflight and ticket-day tools.
+1. Add browser-local degree-plan and audit imports with requirement-aware course picking.
+2. Add the minimal-permission Schedule Builder extension and visible-page seat alerts.
+3. Add local Holds/Action Items, time-ticket countdown, CRN order, and backups.
 4. Resolve permission and approved use before considering RMP.

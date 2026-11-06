@@ -10,6 +10,7 @@
 .filters{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:820px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.filters{grid-template-columns:1fr}}
 .navtabs{display:flex;gap:8px;flex-wrap:wrap;margin:-7px 0 24px}.navtabs a{border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:8px 13px;text-decoration:none;font-weight:700}.tool-panel{margin-top:28px}.tool-panel>h2{margin-bottom:6px}.tool-panel .intro{max-width:75ch;color:var(--muted);margin:0 0 16px}.search-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.search-row .field{flex:1 1 260px}.result-list{display:grid;gap:9px;margin-top:16px}.professor-card{display:grid;grid-template-columns:minmax(200px,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:7px;padding:13px}.professor-card h3{margin:0;font-size:16px}.professor-card p{margin:3px 0 0;font-size:13px;color:var(--muted)}.card-actions{display:flex;gap:12px;align-items:center}.profile-box,.compare-box{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}.profile-box h3,.compare-box h3{margin:0 0 7px}.inline-fields{display:flex;align-items:end;gap:9px;flex-wrap:wrap;margin:12px 0}.inline-fields .field{flex:1 1 220px}.warning-note{border-inline-start:4px solid var(--amber);padding:9px 12px;background:var(--soft);font-size:13px}.compare-table{margin-top:14px}.compare-table th:first-child{min-width:140px}.compare-table td{vertical-align:top}.chosen-list{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.chosen-item{display:flex;gap:8px;align-items:center;border:1px solid var(--line);background:var(--surface);padding:5px 9px;border-radius:6px;font-size:13px}.chosen-item button{min-height:30px}.match-label{font-size:12px;font-weight:700;color:var(--muted)}.table-status{margin-top:10px}@media(max-width:560px){.professor-card{grid-template-columns:1fr}.card-actions{flex-wrap:wrap}.search-row>.button{width:100%}}
 @media(max-width:560px){.actions{grid-column:auto;flex-direction:column;align-items:flex-start;gap:6px}}
+.field textarea{width:100%;min-height:90px;border:1px solid #aeb7ad;border-radius:6px;padding:9px 11px;background:var(--surface);color:var(--ink);resize:vertical}.schedule-note{margin:10px 0;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--soft);font-size:13px}.schedule-option{margin-top:12px;padding:15px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}.schedule-option-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.schedule-option h3{font-size:17px;margin:0}.schedule-option .grade-table-wrap{margin-top:10px}
 </style>
 </head>
 <body>
@@ -17,7 +18,7 @@
 <div class="wrap">
 <header class="topbar"><div class="brand">ASB<span>+</span></div><div class="campus">TEXAS A&amp;M · COLLEGE STATION</div></header>
 <section class="hero"><div class="eyebrow">One place to plan your courses</div><h1>Find the right sections.</h1><p class="subtitle">Search public section data, compare meeting times, and review historical grades. Seat counts may not be public. Confirm availability and eligibility in Howdy.</p></section>
-<nav class="navtabs" aria-label="Main screens"><a href="#main">Course finder</a><a href="#professor-tools">Professor insights</a><a href="#compare-tools">Compare</a></nav>
+<nav class="navtabs" aria-label="Main screens"><a href="#main">Course finder</a><a href="#professor-tools">Professor insights</a><a href="#schedule-tools">Schedules and fit</a><a href="#compare-tools">Compare</a></nav>
 <main id="main" class="main">
 <section class="panel" aria-label="Course search">
 <form id="filters" class="filters">
@@ -50,6 +51,34 @@
 <div id="professor-profile" class="profile-box hidden" aria-live="polite"></div>
 <p class="warning-note"><strong>Rate My Professors is disabled.</strong> No RMP ratings or reviews are requested or displayed. Automated access and reuse need prior permission.</p>
 </section>
+<section id="schedule-tools" class="panel tool-panel" aria-labelledby="schedule-heading">
+<h2 id="schedule-heading">Schedule generation and fit</h2>
+<p class="intro">Generate every conflict-free combination for the selected courses. Compare ranked choices or fit them around classes from your own schedule.</p>
+<p class="warning-note">Meeting blocks for one CRN are checked together. The public data does not reliably link separate lecture and lab CRNs, so ASB+ does not guess pairs. Confirm components and eligibility in Howdy. Public open flags are not live seat counts.</p>
+<p class="schedule-note">Ranking: 2 × mean course GPA + mean course A/B percent ÷ 25 + open flags - closed flags - early/late hours outside your preferences. Missing grade values are not scored. The seat signal is only a public open flag. Ratings and walking distance are not scored because approved ratings and reliable campus paths are not available.</p>
+<div class="profile-box">
+<h3>Fit around my existing schedule</h3>
+<p class="subtext">Imported meetings and preferences stay in this browser. They are not sent to the server.</p>
+<div class="field"><label for="schedule-file">Import a weekly ICS calendar or CSV</label><input id="schedule-file" type="file" accept=".ics,.csv,text/calendar,text/csv"></div>
+<div class="field"><label for="typed-schedule">Or paste weekly blocks as CSV</label><textarea id="typed-schedule" rows="4" placeholder="Course,Days,Start,End,Building&#10;CSCE 120,MWF,09:10,10:00,HELD"></textarea></div>
+<p class="subtext">CSV needs Days, Start, and End columns. Use MWF or TR for days and 24-hour times. ICS import uses weekly recurring events; other events are skipped and reported.</p>
+<div class="card-actions"><button class="button secondary" id="save-typed-schedule" type="button">Save pasted schedule</button><button class="button secondary" id="clear-existing-schedule" type="button">Clear stored schedule</button></div>
+<div id="existing-schedule-status" class="status" role="status" aria-live="polite"></div>
+<div id="existing-schedule"></div>
+</div>
+<div class="search-row">
+<div class="field"><label for="schedule-courses">Courses to schedule</label><input id="schedule-courses" type="text" placeholder="CSCE 482, AERO 201"></div>
+<div class="field"><label for="preferred-start">Prefer no starts before</label><input id="preferred-start" type="time" value="08:00"></div>
+<div class="field"><label for="preferred-end">Prefer to end by</label><input id="preferred-end" type="time" value="18:00"></div>
+<button class="button" id="generate-schedules" type="button">Generate schedules</button>
+<button class="button secondary" id="cancel-schedules" type="button" hidden>Cancel generation</button>
+</div>
+<div id="schedule-status" class="status" role="status" aria-live="polite"></div>
+<div id="schedule-result-count" class="count" aria-live="polite"></div>
+<div id="schedule-results" aria-busy="false"></div>
+<button class="button secondary" id="schedule-more" type="button" hidden>Load more schedules</button>
+<div id="schedule-comparison" class="profile-box"></div>
+</section>
 <section id="compare-tools" class="panel tool-panel" aria-labelledby="compare-heading">
 <h2 id="compare-heading">Compare</h2>
 <p class="intro">Compare up to three courses or professors. Missing grade data stays blank; it is not treated as zero.</p>
@@ -71,6 +100,7 @@
 </main>
 </div>
 <dialog id="grade-dialog" aria-labelledby="grade-title"><div class="dialog-head"><h2 id="grade-title">Historical grade distributions</h2><button class="iconbutton" type="button" id="close-dialog">Close</button></div><div class="dialog-body"><p class="subtext" id="grade-course"></p><div id="grade-status" class="status" role="status" aria-live="polite"></div><div id="grade-content"></div></div></dialog>
+<script src="/schedule.js"></script>
 <script>
 const $ = selector => document.querySelector(selector);
 const state = { offset: 0, limit: 100, request: 0, gradeRequest: 0 };

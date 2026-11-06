@@ -38,7 +38,10 @@ PDF import requires Poppler's `pdftotext` command. The command also accepts a CS
 - Filter by historical mean GPA and A/B share. Lower mean GPA is only a difficulty proxy. A/B share uses A-F counts and excludes Q.
 - Review public open status and historical grade rows with source and term details.
 - Search current-term professors, inspect historical grade outcomes, correct ambiguous instructor-name matches locally, and compare courses or professors.
-- RMP is disabled. No ratings or reviews are requested or shown.
+- Generate every conflict-free combination for the chosen courses, compare alternatives, and rank by historical GPA, A/B share, public open flags, and time preferences. Score components, sources, and freshness are shown. Missing grade data is not scored.
+- Import weekly ICS or CSV classes, or paste typed blocks, to fit schedules. Imported meetings and time preferences stay in browser local storage and are not sent to the server.
+- A section's meeting blocks are checked together. The public data does not reliably link separate lecture and lab CRNs, so the app does not guess those pairs. Confirm them in Howdy.
+- RMP is disabled. Ratings and reviews are not requested or shown. Walking distance is not scored without reliable campus route data.
 - No SSO, Duo, credentials, enrollment submission, or private student data leaves the browser.
 
-Schedule generation, degree planning, the browser extension, seat alerts, and registration preflight remain planned phases. See `docs/SUMMARY.md`.
+Degree planning, the browser extension, seat alerts, and registration preflight remain planned phases. See `docs/SUMMARY.md`.
