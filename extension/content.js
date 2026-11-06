@@ -6,6 +6,40 @@
   const STORAGE = { saved: 'asbWatchCrns', snapshot: 'asbSnapshot', courses: 'asbRebuildCourses', enabled: 'asbRebuildEnabled' };
   const HOST_ID = 'asb-rebuild-host';
   const ACTIVE_ATTR = 'data-asb-rebuild-active';
+  const SUPPRESS_ROUTE_KEY = 'asbPlusNativeAddRoute';
+
+  function isNativeAddRoute(route) {
+    try {
+      return decodeURIComponent(route) === `/terms/${TERM_LABEL}/courses/add`;
+    } catch {
+      return false;
+    }
+  }
+
+  function readSuppressedRoute() {
+    try {
+      const route = sessionStorage.getItem(SUPPRESS_ROUTE_KEY) || '';
+      if (route === location.pathname && isNativeAddRoute(route)) return route;
+      if (route) sessionStorage.removeItem(SUPPRESS_ROUTE_KEY);
+    } catch {}
+    return '';
+  }
+
+  function setSuppressedRoute(route) {
+    state.suppressRoute = isNativeAddRoute(route) ? route : '';
+    try {
+      if (state.suppressRoute) sessionStorage.setItem(SUPPRESS_ROUTE_KEY, state.suppressRoute);
+      else sessionStorage.removeItem(SUPPRESS_ROUTE_KEY);
+    } catch {}
+  }
+
+  function clearSuppressedRoute() {
+    state.suppressRoute = '';
+    try {
+      sessionStorage.removeItem(SUPPRESS_ROUTE_KEY);
+    } catch {}
+  }
+
   const app = document.querySelector('#scheduler-app');
   let main = app?.querySelector('main');
   let nativeNav = app?.querySelector('nav.navbar-fixed-top');
@@ -13,7 +47,8 @@
     enabled: true, active: false, pageTerm: '', backend: null, saved: [], courses: [], results: [],
     courseSections: new Map(), savedSections: new Map(), visibleRows: new Map(), query: '', offset: 0,
     hasMore: false, truncated: false, loading: false, searchSequence: 0, searchTimer: 0, openFilter: 'all', searchMode: 'text',
-    scheduleResults: [], selectedHandoff: [], status: '', currentView: 'find', scrollY: 0, fallback: '', opening: false, lastHealth: '', lastRoute: '', suppressRoute: '',
+    scheduleResults: [], selectedHandoff: [], status: '', currentView: 'find', scrollY: 0, fallback: '', opening: false, lastHealth: '', lastRoute: '', suppressRoute: readSuppressedRoute(),
+
   };
   let host;
   let shadow;
@@ -327,7 +362,8 @@
 
     const handoff=el('section','view');handoff.dataset.view='handoff';const handoffHead=el('div','subhead');const hTitle=el('div');hTitle.append(el('h2','','Review CRNs'),el('p','','Copy the chosen sections into Schedule Builder. Nothing is added to the cart or registered automatically.'));handoffHead.append(hTitle);handoff.append(handoffHead);
     const handoffGrid=el('div','handoff');const left=el('div');left.append(el('h3','','Selected sections'));const handoffDetails=el('div','section-list');handoffDetails.dataset.handoffDetails='true';left.append(handoffDetails);const crnBox=el('textarea');crnBox.readOnly=true;crnBox.setAttribute('aria-label','Selected CRNs, one per line');crnBox.dataset.crns='true';left.append(crnBox,button('Copy CRNs','primary',copyCrns));const copyStatus=el('p','statusline');copyStatus.dataset.copyStatus='true';copyStatus.setAttribute('role','status');copyStatus.setAttribute('aria-live','polite');left.append(copyStatus);
-    const right=el('div');right.append(el('h3','','Continue in Schedule Builder'));const steps=el('ol','steps');for(const step of ['Copy the CRNs above.','Open native Add Courses and choose By CRN; paste and add the course(s).','Choose the matching sections and use Schedule Builder’s native cart controls.','Review the native cart. Click Register yourself only when ready.'])steps.append(el('li','',step));right.append(steps);const addLink=el('a','primary','Open native Add Courses');addLink.href=nativeAddCoursesHref();addLink.addEventListener('click',()=>{state.suppressRoute=new URL(addLink.href).pathname;closeWorkspace();});right.append(addLink,el('p','muted','ASB+ never submits registration, touches sign-in, or reads cookies. Confirm current availability, eligibility, and holds in the official page.'));handoffGrid.append(left,right);handoff.append(handoffGrid);
+    const right=el('div');right.append(el('h3','','Continue in Schedule Builder'));const steps=el('ol','steps');for(const step of ['Copy the CRNs above.','Open native Add Courses and choose By CRN; paste and add the course(s).','Choose the matching sections and use Schedule Builder’s native cart controls.','Review the native cart. Click Register yourself only when ready.'])steps.append(el('li','',step));right.append(steps);const addLink=el('a','primary','Open native Add Courses');addLink.href=nativeAddCoursesHref();addLink.addEventListener('click',event=>{if(event.defaultPrevented||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey||(addLink.target&&addLink.target.toLowerCase()!=='_self')||addLink.hasAttribute('download'))return;setSuppressedRoute(new URL(addLink.href).pathname);closeWorkspace();});right.append(addLink,el('p','muted','ASB+ never submits registration, touches sign-in, or reads cookies. Confirm current availability, eligibility, and holds in the official page.'));handoffGrid.append(left,right);handoff.append(handoffGrid);
+
 
     const footer=el('p','footnote','Public open/closed flags are not seat counts. Numeric seats appear only when directly readable in a visible Schedule Builder Seats Open cell. Historical grades are not predictions; RMP is a search link only. Degree rules remain in this browser.');
     const views=[findView,planView,savedView,handoff]; for(const view of views)view.hidden=view.dataset.view!==state.currentView;
@@ -603,6 +639,8 @@
 
   async function openWorkspace() {
     if (state.active || state.opening) return;
+    clearSuppressedRoute();
+
     state.opening = true;
     try {
       const check = healthCheck();
@@ -692,6 +730,8 @@
     clearTimeout(pageChangeTimer);
     pageChangeTimer = setTimeout(async function () {
       const route = location.pathname;
+      if (state.suppressRoute && state.suppressRoute !== route) clearSuppressedRoute();
+
       if (!routeSupported()) {
         if (state.active) await closeWorkspace();
         host?.remove();
@@ -699,7 +739,8 @@
         shadow = null;
         state.lastHealth = '';
         state.lastRoute = route;
-        state.suppressRoute = '';
+        clearSuppressedRoute();
+
         return;
       }
 
@@ -707,6 +748,11 @@
       const health = check.ok ? 'ok' : check.selectors.join('|');
       const routeChanged = state.lastRoute !== route;
       state.lastRoute = route;
+      if (!state.active && state.suppressRoute === route && check.ok &&
+          state.fallback.startsWith('ASB+ is using the original page. Unsupported page checks:')) {
+        state.fallback = '';
+        setFallbackNotice('');
+      }
 
       if (state.active) {
         state.lastHealth = health;
@@ -765,7 +811,7 @@
       setFallbackNotice(`ASB+ is using the original page. Unsupported page checks: ${check.selectors.join(', ')}.`);
       return;
     }
-    if (!state.enabled) return;
+    if (!state.enabled || state.suppressRoute === location.pathname) return;
     await openWorkspace();
   }
 
