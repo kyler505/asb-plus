@@ -4,17 +4,19 @@
 
 - Rust/Axum app with an indexed SQLite database, bound to localhost.
 - Search and filter sections by term, subject, course, CRN, instructor, College Station campus, attribute, meeting day/time, historical mean GPA, and A/B share.
-- Course and section results show meetings, instructors, attributes, open status, data source, and whether seats are unavailable. Public open/closed flags are not seat counts.
+- Section results show meetings, instructors, attributes, open status, data source, and whether numeric seats are unavailable. Public open/closed flags are not seat counts.
 - Manual public Howdy refresh. It can take up to 90 seconds and is limited to one request every six hours. Failed refreshes preserve existing data.
 - Historical grade distributions by course, instructor, section, and term. The app can query anex.us with a 24-hour cache and import TAMU Registrar Grade Distribution PDFs or CSV files. PDF import requires Poppler's `pdftotext`.
 - Registrar records take precedence over matching anex records for the same course, term, and section.
-- Mean GPA and A/B share filters. Lower mean GPA is only a difficulty proxy. A/B share is computed from A-F counts; Q is excluded.
+- Search current-term professors, view section-level historical grade outcomes, and compare up to three courses or professors side by side.
+- Professor grade names match automatically only when surname and first initial identify one current professor and one grade name. Users can search and confirm another match; corrections stay in browser local storage.
+- Compare screens show sources and sample counts. Mean GPA is an unweighted mean of grade-section GPAs. A/B share uses A-F counts; Q is excluded. Missing data is not treated as zero.
 - Local deployment currently indexes 20,703 sections and 5,007 courses. These counts include the supplied Spring 2027 data and a public Howdy refresh.
 - No SSO, Duo, credentials, private student imports, or registration submission.
 
 ## Stubbed or not included
 
-- Professor profiles and comparisons, including RMP. No RMP requests are made; permission and terms remain an open decision.
+- RMP ratings and reviews are disabled. No RMP requests or redistribution occur. Permission and approved use remain unresolved.
 - Schedule generation, schedule comparisons, and local schedule-fit imports.
 - UGDP and degree-audit imports, catalog requirement matching, and requirement-aware course picking.
 - Browser extension, visible-page seat alerts, Holds/Action Items, time-ticket countdown, CRN ordering, and backups.
@@ -41,7 +43,7 @@ The importer also accepts CSV. Use `cargo run --release -- refresh-howdy` to ref
 
 ## Next steps
 
-1. Add professor insights and course/professor comparisons. Keep RMP disabled until permission and use are resolved.
-2. Build complete conflict-free schedules and browser-local schedule fit.
-3. Add browser-local degree planning, requirement matching, and the Schedule Builder extension.
-4. Add local registration preflight and ticket-day tools.
+1. Build conflict-free schedules and local schedule fit.
+2. Add browser-local degree planning, requirement matching, and the Schedule Builder extension.
+3. Add local registration preflight and ticket-day tools.
+4. Resolve permission and approved use before considering RMP.

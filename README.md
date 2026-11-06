@@ -37,6 +37,8 @@ PDF import requires Poppler's `pdftotext` command. The command also accepts a CS
 - Search sections by course, CRN, instructor, term, campus, attributes, day, and time.
 - Filter by historical mean GPA and A/B share. Lower mean GPA is only a difficulty proxy. A/B share uses A-F counts and excludes Q.
 - Review public open status and historical grade rows with source and term details.
+- Search current-term professors, inspect historical grade outcomes, correct ambiguous instructor-name matches locally, and compare courses or professors.
+- RMP is disabled. No ratings or reviews are requested or shown.
 - No SSO, Duo, credentials, enrollment submission, or private student data leaves the browser.
 
-Professor comparison, schedule generation, degree planning, the browser extension, seat alerts, and registration preflight are planned phases. See `docs/SUMMARY.md`.
+Schedule generation, degree planning, the browser extension, seat alerts, and registration preflight remain planned phases. See `docs/SUMMARY.md`.

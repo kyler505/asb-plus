@@ -145,11 +145,14 @@ async fn import_sections_value(
                         .then_some(*code)
                 })
                 .collect::<String>();
-                meetings_json.push(json!({
+                let meeting_row = json!({
                     "days": days, "begin": val(meeting,"SSRMEET_BEGIN_TIME"),
                     "end": val(meeting,"SSRMEET_END_TIME"), "building": val(meeting,"SSRMEET_BLDG_CODE"),
                     "room": val(meeting,"SSRMEET_ROOM_CODE"), "type": val(meeting,"SSRMEET_MTYP_CODE")
-                }));
+                });
+                if !meetings_json.contains(&meeting_row) {
+                    meetings_json.push(meeting_row);
+                }
             }
         }
         let raw_instructors: Value = field(row, "SWV_CLASS_SEARCH_INSTRCTR_JSON")

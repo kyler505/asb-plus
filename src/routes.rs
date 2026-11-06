@@ -163,6 +163,39 @@ struct TermRow {
     term: String,
     label: String,
 }
+#[derive(Deserialize, Default)]
+struct ProfessorSearch {
+    term: Option<String>,
+    q: Option<String>,
+    grade_name: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+struct GradeInstructorSearch {
+    q: Option<String>,
+}
+
+#[derive(FromRow)]
+struct ProfessorBase {
+    name: String,
+    sections: i64,
+    courses: String,
+}
+
+#[derive(Serialize)]
+struct ProfessorInfo {
+    name: String,
+    sections: i64,
+    courses: String,
+    candidate_names: Vec<String>,
+    match_confidence: String,
+}
+
+#[derive(FromRow, Serialize)]
+struct GradeInstructor {
+    instructor: String,
+    records: i64,
+}
 
 #[derive(FromRow, Serialize)]
 struct GradeRow {
@@ -194,6 +227,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/sections", get(sections))
         .route("/api/sections/refresh", post(refresh_sections))
         .route("/api/grades", get(grades))
+        .route("/api/professors", get(professors))
+        .route("/api/professors/{name}", get(professor))
+        .route("/api/grade-instructors", get(grade_instructors))
         .route(
             "/api/grades/{subject}/{course}/refresh",
             post(refresh_grades),
@@ -464,9 +500,193 @@ async fn grades(
 ) -> Result<Json<Value>, ApiError> {
     let subject = search.subject.unwrap_or_default().to_uppercase();
     let course = search.course.unwrap_or_default();
-    let rows: Vec<GradeRow> = sqlx::query_as("SELECT subject,course,section,instructor,year,semester,gpa,grade_a,grade_b,grade_c,grade_d,grade_f,grade_q,source,fetched_at FROM (SELECT g.*,ROW_NUMBER() OVER (PARTITION BY g.subject,g.course,CASE WHEN trim(g.section)='' OR trim(g.instructor)='' THEN 'id:'||g.id ELSE upper(trim(g.section))||'|'||upper(trim(g.instructor)) END,g.year,g.semester ORDER BY CASE WHEN g.source IN ('registrar-pdf','registrar-csv') THEN 0 ELSE 1 END,g.fetched_at DESC,g.id DESC) AS source_rank FROM grade_observations g WHERE (?='' OR g.subject=?) AND (?='' OR g.course=?)) ranked_grades WHERE source_rank=1 ORDER BY CAST(year AS INTEGER) DESC,CASE upper(semester) WHEN 'FALL' THEN 3 WHEN 'SUMMER' THEN 2 WHEN 'SPRING' THEN 1 ELSE 0 END DESC,instructor,section LIMIT 1000")
-        .bind(&subject).bind(&subject).bind(&course).bind(&course).fetch_all(&state.pool).await?;
+    let instructor = search.instructor.unwrap_or_default();
+    let rows = fetch_grade_rows(&state.pool, &subject, &course, &instructor).await?;
     Ok(Json(json!({"grades":rows})))
+}
+
+async fn fetch_grade_rows(
+    pool: &sqlx::SqlitePool,
+    subject: &str,
+    course: &str,
+    instructor: &str,
+) -> Result<Vec<GradeRow>, sqlx::Error> {
+    sqlx::query_as(
+        "SELECT subject,course,section,instructor,year,semester,gpa,grade_a,grade_b,grade_c,grade_d,grade_f,grade_q,source,fetched_at FROM (SELECT g.*,ROW_NUMBER() OVER (PARTITION BY g.subject,g.course,CASE WHEN trim(g.section)='' OR trim(g.instructor)='' THEN 'id:'||g.id ELSE upper(trim(g.section))||'|'||upper(trim(g.instructor)) END,g.year,g.semester ORDER BY CASE WHEN g.source IN ('registrar-pdf','registrar-csv') THEN 0 ELSE 1 END,g.fetched_at DESC,g.id DESC) AS source_rank FROM grade_observations g WHERE (?='' OR g.subject=?) AND (?='' OR g.course=?) AND (?='' OR g.instructor=? COLLATE NOCASE)) ranked_grades WHERE source_rank=1 ORDER BY CAST(year AS INTEGER) DESC,CASE upper(semester) WHEN 'FALL' THEN 3 WHEN 'SUMMER' THEN 2 WHEN 'SPRING' THEN 1 ELSE 0 END DESC,instructor,section LIMIT 1000",
+    )
+    .bind(subject)
+    .bind(subject)
+    .bind(course)
+    .bind(course)
+    .bind(instructor)
+    .bind(instructor)
+    .fetch_all(pool)
+    .await
+}
+
+fn professor_match_key(name: &str, grade_name: bool) -> Option<String> {
+    let name = name.split('(').next().unwrap_or(name);
+    let parts: Vec<String> = name
+        .split(|character: char| !character.is_alphanumeric())
+        .filter(|part| !part.is_empty())
+        .map(str::to_ascii_uppercase)
+        .collect();
+    if grade_name {
+        let [surname, first, ..] = parts.as_slice() else {
+            return None;
+        };
+        Some(format!("{surname} {}", first.chars().next()?))
+    } else {
+        let first = parts.first()?;
+        let surname = parts.last()?;
+        Some(format!("{surname} {}", first.chars().next()?))
+    }
+}
+
+async fn professor_directory(
+    pool: &sqlx::SqlitePool,
+    term: &str,
+) -> Result<Vec<ProfessorInfo>, sqlx::Error> {
+    let bases: Vec<ProfessorBase> = sqlx::query_as(
+        "SELECT i.display_name AS name,COUNT(DISTINCT si.crn) AS sections,COALESCE(GROUP_CONCAT(DISTINCT s.subject||' '||s.course),'') AS courses FROM instructors i JOIN section_instructors si ON si.instructor_id=i.id JOIN sections s ON s.term=si.term AND s.crn=si.crn WHERE s.term=? GROUP BY i.id ORDER BY i.display_name",
+    )
+    .bind(term)
+    .fetch_all(pool)
+    .await?;
+    let grade_names: Vec<String> = sqlx::query_scalar(
+        "SELECT DISTINCT instructor FROM grade_observations WHERE trim(instructor)<>'' ORDER BY instructor",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let mut active_by_key = std::collections::HashMap::<String, usize>::new();
+    for base in &bases {
+        if let Some(key) = professor_match_key(&base.name, false) {
+            *active_by_key.entry(key).or_default() += 1;
+        }
+    }
+    let mut history_by_key = std::collections::HashMap::<String, Vec<String>>::new();
+    for grade_name in grade_names {
+        if let Some(key) = professor_match_key(&grade_name, true) {
+            history_by_key.entry(key).or_default().push(grade_name);
+        }
+    }
+    Ok(bases
+        .into_iter()
+        .map(|base| {
+            let candidate_names = professor_match_key(&base.name, false)
+                .and_then(|key| history_by_key.get(&key).cloned())
+                .unwrap_or_default();
+            let active_matches = professor_match_key(&base.name, false)
+                .and_then(|key| active_by_key.get(&key).copied())
+                .unwrap_or_default();
+            let match_confidence = if candidate_names.len() == 1 && active_matches == 1 {
+                "high"
+            } else if candidate_names.is_empty() {
+                "unmatched"
+            } else {
+                "ambiguous"
+            };
+            ProfessorInfo {
+                name: base.name,
+                sections: base.sections,
+                courses: base.courses,
+                candidate_names,
+                match_confidence: match_confidence.into(),
+            }
+        })
+        .collect())
+}
+
+async fn professors(
+    State(state): State<AppState>,
+    Query(search): Query<ProfessorSearch>,
+) -> Result<Json<Value>, ApiError> {
+    let term = match search.term.filter(|term| !term.is_empty()) {
+        Some(term) => term,
+        None => {
+            sqlx::query_scalar("SELECT COALESCE(MAX(term),'') FROM terms")
+                .fetch_one(&state.pool)
+                .await?
+        }
+    };
+    let query = search.q.unwrap_or_default().trim().to_lowercase();
+    let directory = professor_directory(&state.pool, &term).await?;
+    let total = directory
+        .iter()
+        .filter(|professor| professor.name.to_lowercase().contains(&query))
+        .count();
+    let professors: Vec<_> = directory
+        .into_iter()
+        .filter(|professor| professor.name.to_lowercase().contains(&query))
+        .take(100)
+        .collect();
+    Ok(Json(
+        json!({"term":term,"total":total,"professors":professors}),
+    ))
+}
+
+async fn professor(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+    Query(search): Query<ProfessorSearch>,
+) -> Result<Json<Value>, ApiError> {
+    let term = match search.term.filter(|term| !term.is_empty()) {
+        Some(term) => term,
+        None => {
+            sqlx::query_scalar("SELECT COALESCE(MAX(term),'') FROM terms")
+                .fetch_one(&state.pool)
+                .await?
+        }
+    };
+    let professor = professor_directory(&state.pool, &term)
+        .await?
+        .into_iter()
+        .find(|professor| professor.name == name)
+        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "Professor is not in this term."))?;
+    let manual_name = search
+        .grade_name
+        .filter(|grade_name| !grade_name.trim().is_empty());
+    let grade_name = manual_name.clone().or_else(|| {
+        (professor.match_confidence == "high")
+            .then(|| professor.candidate_names.first().cloned())
+            .flatten()
+    });
+    let grades = match grade_name.as_deref() {
+        Some(grade_name) => fetch_grade_rows(&state.pool, "", "", grade_name).await?,
+        None => Vec::new(),
+    };
+    let match_confidence = if manual_name.is_some() {
+        "manual"
+    } else {
+        professor.match_confidence.as_str()
+    };
+    Ok(Json(json!({
+        "term":term,
+        "name":professor.name,
+        "sections":professor.sections,
+        "courses":professor.courses,
+        "candidate_names":professor.candidate_names,
+        "match_confidence":match_confidence,
+        "grade_name":grade_name,
+        "grades":grades
+    })))
+}
+
+async fn grade_instructors(
+    State(state): State<AppState>,
+    Query(search): Query<GradeInstructorSearch>,
+) -> Result<Json<Value>, ApiError> {
+    let query = search.q.unwrap_or_default().trim().to_owned();
+    let pattern = format!("%{query}%");
+    let rows: Vec<GradeInstructor> = sqlx::query_as(
+        "SELECT instructor,COUNT(*) AS records FROM grade_observations WHERE trim(instructor)<>'' AND (?='' OR instructor LIKE ? COLLATE NOCASE) GROUP BY instructor ORDER BY records DESC,instructor LIMIT 50",
+    )
+    .bind(&query)
+    .bind(pattern)
+    .fetch_all(&state.pool)
+    .await?;
+    Ok(Json(json!({"instructors":rows})))
 }
 
 async fn refresh_sections(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
