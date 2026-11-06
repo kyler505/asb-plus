@@ -41,15 +41,19 @@
 - Loaded `extension/` unpacked in Chrome for Testing 150 against the ASB+ backend on hp through the `localhost:8000` SSH tunnel.
 - The popup connected and showed Spring 2027, 20,703 sections, and 5,007 courses.
 - Searched `CSCE 482`: 10 live sections with meeting blocks, `howdy-public` source, mean GPA 3.81, 96.9% A/B, 111 grade records, and anex/registrar-pdf sources.
-- Saved three CRNs. The Saved view reported the exact meeting-time conflict between CRNs 37075 and 37077 and reported no conflict for a non-overlapping section.
-- Rendered the overlay on a routed page at `https://tamu.collegescheduler.com/test` with Schedule Builder-shaped rows. It resolved both CRNs through the backend, showed live meetings and grades, parsed visible Open/Closed status, reported conflicts, and exposed Save/Remove state.
-- Ran **Check Schedule Builder page** against that page: 2 detected rows, 2 overlay panels, 2 distinct CRNs in page text, and row element tags/classes returned.
-- Not verified live: the DOM of the signed-in `tamu.collegescheduler.com` Schedule Builder. No credentials, SSO, Duo, or cookies were used and the browser was not signed in. The real page needs Kyler's own signed-in session.
+- Verified on the real signed-in Aggie Schedule Builder in Kyler's own Chrome session. No credentials, SSO, Duo, or cookies were handled.
+- The Fall 2026 page was detected as a term mismatch with the Spring 2027 backend. The overlay showed the page term, the backend term, and refused section details. This prevented CRN 53942 from displaying the different Spring 2027 CHEM 258 course.
+- On the Spring 2027 CSCE 482 course page, the overlay attached to the live section table. Five visible rows showed live meetings, public flags, mean GPA 3.81, 96.9% A/B, 111 grade records, anex/registrar-pdf sources, instructors, RMP search links, and Save buttons.
+- Saved CRNs 37075 and 37077 from the live overlay. Both panels showed the exact meeting-time conflict, and the popup Saved view reported the same conflict. Remove and Save toggles updated the live overlay.
+- The overlay scanned on DOM changes, scrolling, and visibility changes. A timer debounce replaced `requestAnimationFrame`, because Chrome throttles rAF in an occluded window and the overlay would otherwise never attach.
+- The extension action was pinned in the toolbar (`isOnToolbar: true`), with one Chrome window and one Schedule Builder tab.
 
 ## Stubbed or not included
 
 - RMP ratings and reviews are not embedded. The extension only opens an RMP search when the student clicks an instructor link. Automated access and redistribution remain disabled until permission and approved use are resolved.
-- The signed-in Schedule Builder DOM and status wording are not verified. The parser needs a visible five-digit CRN. If the live page hides CRNs or renders them outside readable text, the overlay cannot attach; use **Check Schedule Builder page** to diagnose.
+- The signed-in Schedule Builder table layout is verified for the term and course pages observed on Nov 6. Other terms or a redesigned page may differ; use **Check Schedule Builder page** to diagnose detected CRNs, statuses, and element classes.
+- The live section table shows seat counts in a column rather than the words Open/Closed, so those cells are not parsed as a status. The overlay shows the public Howdy flag and labels the visible status as not recognized. It does not turn the visible number into a seat count.
+- Section matching requires the Schedule Builder term and the ASB+ term to agree, and the live row text to contain the backend course code. The overlay does not fall back to CRN-only matching across terms, because CRNs are reused.
 - The extension's requirement context comes from rules in an optional planner snapshot import. Private plan, audit, and transcript data stay in the planner.
 - The public section data does not reliably link separate lecture and lab CRNs. ASB+ does not guess the pairings; confirm separate components in Howdy.
 - Schedule ranking does not use walking distance because reliable campus paths are not available.

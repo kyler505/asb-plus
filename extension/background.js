@@ -5,8 +5,10 @@ const snapshotKey = 'asbSnapshot';
 const observedKey = 'asbObservedFlags';
 const maxCacheEntries = 800;
 const gradeCacheMs = 10 * 60 * 1000;
+const termCacheMs = 60 * 1000;
 
 const gradeCache = new Map();
+const termCache = { at: 0, terms: [] };
 let cacheWrite = Promise.resolve();
 
 function loopbackBase(value) {
@@ -210,26 +212,30 @@ async function enrich(rawSections) {
   return rawSections.map(raw => normalizeSection(raw, gradesByCode.get(`${String(raw.subject || '').toUpperCase()} ${String(raw.course || '')}`.trim()) || [], rules));
 }
 
+function cacheId(section) {
+  return `${section.term || ''}:${section.crn}`;
+}
+
 async function cacheSections(sections) {
   if (!sections.length) return;
   cacheWrite = cacheWrite.then(async () => {
     const stored = await chrome.storage.local.get({ [cacheKey]: {} });
     const cache = stored[cacheKey] && typeof stored[cacheKey] === 'object' ? stored[cacheKey] : {};
     const now = Date.now();
-    for (const section of sections) if (section?.crn) cache[section.crn] = { section, at: now };
+    for (const section of sections) if (section?.crn) cache[cacheId(section)] = { section, at: now };
     const kept = Object.entries(cache).sort((left, right) => (right[1]?.at || 0) - (left[1]?.at || 0)).slice(0, maxCacheEntries);
     await chrome.storage.local.set({ [cacheKey]: Object.fromEntries(kept) });
   }).catch(() => {});
   return cacheWrite;
 }
 
-async function cachedSections(crns) {
+async function cachedSections(crns, term) {
   const stored = await chrome.storage.local.get({ [cacheKey]: {} });
   const cache = stored[cacheKey] || {};
   const found = new Map();
   for (const crn of crns) {
-    const entry = cache[String(crn)];
-    if (entry?.section) found.set(String(crn), entry.section);
+    const entry = cache[`${term}:${crn}`];
+    if (entry?.section && (!term || entry.section.term === term)) found.set(String(crn), entry.section);
   }
   return found;
 }
@@ -256,10 +262,29 @@ async function latestTerm() {
   return data?.latest_term ? String(data.latest_term) : '';
 }
 
+async function terms() {
+  if (Date.now() - termCache.at < termCacheMs) return termCache.terms;
+  const data = await api('/api/terms');
+  termCache.terms = Array.isArray(data.terms) ? data.terms : [];
+  termCache.at = Date.now();
+  return termCache.terms;
+}
+
+function labelFor(term, list) {
+  return list.find(item => String(item.term) === String(term))?.label || term || 'term not listed';
+}
+
+async function termLabel(term) {
+  try {
+    return labelFor(term, await terms());
+  } catch {
+    return term || 'term not listed';
+  }
+}
+
 async function connection() {
-  const [summary, terms] = await Promise.all([api('/api/summary'), api('/api/terms').catch(() => ({ terms: [] }))]);
+  const [summary, termList] = await Promise.all([api('/api/summary'), terms().catch(() => [])]);
   const term = summary?.latest_term ? String(summary.latest_term) : '';
-  const label = (terms.terms || []).find(item => String(item.term) === term)?.label || term || 'term not listed';
   return {
     ok: true,
     base: await backendBase(),
@@ -268,7 +293,7 @@ async function connection() {
       sections: Number(summary?.sections) || 0,
       lastUpdated: Number(summary?.last_updated) || null,
       term,
-      termLabel: label
+      termLabel: labelFor(term, termList)
     }
   };
 }
@@ -295,29 +320,31 @@ async function searchSections(message) {
   return { ok: true, sections, term, query };
 }
 
-async function sectionsFor(crns) {
+async function sectionsFor(crns, requestedTerm) {
   const wanted = [...new Set((crns || []).map(String))];
-  const cached = await cachedSections(wanted);
+  const term = String(requestedTerm || '') || await latestTerm().catch(() => '');
+  const cached = await cachedSections(wanted, term);
   const missing = wanted.filter(crn => !cached.has(crn));
   if (missing.length) {
-    const term = await latestTerm().catch(() => '');
     const fetched = await fetchMissing(missing, term);
-    for (const section of fetched) cached.set(section.crn, section);
+    for (const section of fetched) if (!term || section.term === term) cached.set(section.crn, section);
   }
   const rules = await readRules();
-  const sections = [...cached.values()].map(section => ({ ...section, requirementFits: requirementFits(section, rules) }));
-  return { ok: true, sections };
+  const sections = [...cached.values()]
+    .filter(section => !term || section.term === term)
+    .map(section => ({ ...section, requirementFits: requirementFits(section, rules) }));
+  return { ok: true, sections, term, termLabel: await termLabel(term) };
 }
 
-async function refreshSaved(crns) {
+async function refreshSaved(crns, requestedTerm) {
   const wanted = [...new Set((crns || []).map(String))];
-  const before = await cachedSections(wanted);
+  const term = String(requestedTerm || '') || await latestTerm().catch(() => '');
+  const before = await cachedSections(wanted, term);
   const observedStore = await chrome.storage.local.get({ [observedKey]: {} });
   const observed = observedStore[observedKey] && typeof observedStore[observedKey] === 'object' ? { ...observedStore[observedKey] } : {};
-  const term = await latestTerm().catch(() => '');
   const fetched = await fetchMissing(wanted, term);
   const after = new Map(before);
-  for (const section of fetched) after.set(section.crn, section);
+  for (const section of fetched) if (!term || section.term === term) after.set(section.crn, section);
   const changed = [];
   for (const [crn, section] of after) {
     const previous = observed[crn];
@@ -327,7 +354,7 @@ async function refreshSaved(crns) {
     if (section.openFlag) observed[crn] = section.openFlag;
   }
   await chrome.storage.local.set({ [observedKey]: observed });
-  return { ok: true, sections: [...after.values()], changed };
+  return { ok: true, sections: [...after.values()], changed, term, termLabel: await termLabel(term) };
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -338,9 +365,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case 'asb-search':
         return searchSections(message);
       case 'asb-sections':
-        return sectionsFor(message.crns);
+        return sectionsFor(message.crns, message.term);
       case 'asb-refresh-saved':
-        return refreshSaved(message.crns);
+        return refreshSaved(message.crns, message.term);
       case 'asb-clear-cache':
         await chrome.storage.local.remove(cacheKey);
         return { ok: true };

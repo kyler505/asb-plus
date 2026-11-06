@@ -9,7 +9,11 @@
   const liveSections = new Map();
   const liveRequested = new Set();
   const liveMissAt = new Map();
-  let queued = false;
+  let pageTermCode = '';
+  let backendTerm = null;
+  let backendUnavailable = false;
+  let backendTriedAt = 0;
+  let scanTimer = 0;
   let scanChain = Promise.resolve();
   let watchUpdateChain = Promise.resolve();
 
@@ -30,6 +34,54 @@
     return values.length === 1 ? values[0] : '';
   }
 
+  function pageTerm() {
+    const text = document.body?.innerText || '';
+    const match = text.match(/\bTerm\s+(Spring|Summer|Fall)\s+(\d{4})/i) || text.match(/\b(Spring|Summer|Fall)\s+(\d{4})\b/i);
+    if (!match) return null;
+    const season = match[1].toLowerCase();
+    const year = Number(match[2]);
+    const suffix = season === 'spring' ? '11' : season === 'summer' ? '21' : '31';
+    return { code: `${year}${suffix}`, label: `${season[0].toUpperCase()}${season.slice(1)} ${year}` };
+  }
+
+  function compactCode(value) {
+    return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  function rowMatchesSection(row, section) {
+    if (!section) return false;
+    if (pageTermCode && section.term && section.term !== pageTermCode) return false;
+    const code = compactCode(section.courseCode);
+    return Boolean(code) && compactCode(row.text).includes(code);
+  }
+
+  function sectionNote(candidate, term) {
+    if (backendUnavailable) return 'ASB+ backend is offline. Start the app on hp and keep the localhost:8000 tunnel open.';
+    if (!candidate) {
+      if (term && backendTerm?.code && backendTerm.code !== term.code) {
+        return `This Schedule Builder page is ${term.label}. ASB+ section data is ${backendTerm.label}. No section details are shown.`;
+      }
+      return 'ASB+ has no section data for this CRN in the current term.';
+    }
+    if (term && candidate.term && candidate.term !== term.code) {
+      return `CRN ${candidate.crn} is ${candidate.courseCode} in ASB+ term ${candidate.term}, not on this ${term.label} page. No section details are shown.`;
+    }
+    return `ASB+ has this CRN as ${candidate.courseCode}, which does not match this Schedule Builder row. No details are shown.`;
+  }
+
+  function sendMessage(message) {
+    return new Promise(resolve => {
+      try {
+        chrome.runtime.sendMessage(message, response => {
+          if (chrome.runtime.lastError || !response?.ok) resolve(null);
+          else resolve(response);
+        });
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
   function statusFromLeaves(node) {
     for (const element of node.querySelectorAll('*')) {
       if (element.children.length) continue;
@@ -48,6 +100,7 @@
       const status = (labeled ? labeled[1] : chunk).trim();
       if (/^(?:full|closed|unavailable|not available|no seats|0 seats?)(?:$|[\s:/-])/.test(status)) return 'closed';
       if (/^(?:open|available)(?:$|[:/-])/.test(status) || /^(?:open|available)\s+(?:seats?|places?|[0-9])/.test(status) || /^[1-9]\d*\s+seats?\s+available\b/.test(status)) return 'open';
+      if (/^(?:enrolled|registered)(?:$|[\s:/-])/.test(status)) return 'enrolled';
     }
     return '';
   }
@@ -138,14 +191,15 @@
     return blocks.join(' | ');
   }
 
-  function addSectionInfo(panel, section, row, watchCrns, lookup) {
+  function addSectionInfo(panel, section, row, watchCrns, lookup, note) {
     const title = section ? `${section.courseCode} · Section ${section.section} · CRN ${section.crn}` : `Visible CRN ${row.crn}`;
     panel.append(makeElement('strong', 'heading', title));
     if (section?.title) panel.append(makeElement('p', '', section.title));
     if (section) panel.append(makeElement('p', '', meetingSummary(section)));
     const observed = new Date().toLocaleString();
-    panel.append(makeElement('p', 'source', row.status
-      ? `Visible Schedule Builder status: ${row.status === 'open' ? 'Open/available' : 'Full/closed'} · observed ${observed}.`
+    const visibleStatus = row.status === 'open' ? 'Open/available' : row.status === 'closed' ? 'Full/closed' : row.status === 'enrolled' ? 'Enrolled' : '';
+    panel.append(makeElement('p', 'source', visibleStatus
+      ? `Visible Schedule Builder status: ${visibleStatus} · observed ${observed}.`
       : `Visible Schedule Builder row · status not recognized · observed ${observed}.`));
     if (section) {
       const flag = section.openFlag === 'Y' ? 'Open' : section.openFlag === 'N' ? 'Closed' : 'Not reported';
@@ -177,11 +231,15 @@
       }
       panel.append(makeElement('p', 'conflict', trackedConflictText(section, watchCrns, lookup)));
     } else {
-      panel.append(makeElement('p', '', 'ASB+ has no section data for this CRN in its current term. Confirm the course in ASB+ or check the term in Schedule Builder.'));
+      panel.append(makeElement('p', '', note || 'ASB+ has no section data for this CRN in the current term.'));
     }
   }
 
-  function addWatchButton(panel, crn, watchCrns) {
+  function addWatchButton(panel, crn, watchCrns, canSave) {
+    if (!canSave) {
+      panel.append(makeElement('p', 'source', 'Saving is unavailable until ASB+ has matching section data for this term.'));
+      return;
+    }
     const button = makeElement('button', 'watch-button', watchCrns.includes(crn) ? 'Remove saved section' : 'Save section');
     button.type = 'button';
     button.setAttribute('aria-pressed', String(watchCrns.includes(crn)));
@@ -229,11 +287,11 @@
     return host;
   }
 
-  function renderRow(row, saved, section, lookup) {
+  function renderRow(row, saved, section, lookup, note, canSave) {
     const watchCrns = Array.isArray(saved[watchKey]) ? saved[watchKey].map(String) : [];
     const host = createPanelHost(row);
     const conflictContext = watchCrns.map(crn => lookup.get(crn)?.meetings || null);
-    const signature = JSON.stringify([row.text, row.status, watchCrns, section, conflictContext]);
+    const signature = JSON.stringify([row.text, row.status, watchCrns, section, conflictContext, note, canSave, pageTermCode, backendTerm?.label]);
     if (host.dataset.asbSignature === signature) return;
     host.dataset.asbSignature = signature;
     const shadow = host.shadowRoot || host.attachShadow({ mode: 'open' });
@@ -242,8 +300,8 @@
     style.textContent = ':host{display:block;margin:5px 0;color:#202522;font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}.panel{display:grid;gap:4px;padding:9px 11px;border:1px solid #d7dcd3;border-inline-start:4px solid #500000;border-radius:6px;background:#fff}.panel p{margin:0}.heading{color:#500000}.source{color:#525c55;font-size:12px}.section-label{margin-top:3px!important;font-weight:750}.fit-match{color:#286248}.fit-miss{color:#805c18}.conflict{font-weight:700}.watch-button{justify-self:start;min-height:34px;margin-top:3px;padding:5px 10px;border:1px solid #500000;border-radius:5px;background:#fff;color:#500000;font:inherit;font-weight:700;cursor:pointer}.watch-button:focus-visible{outline:3px solid #b46a20;outline-offset:2px}';
     const panel = document.createElement('div');
     panel.className = 'panel';
-    addSectionInfo(panel, section, row, watchCrns, lookup);
-    addWatchButton(panel, row.crn, watchCrns);
+    addSectionInfo(panel, section, row, watchCrns, lookup, note);
+    addWatchButton(panel, row.crn, watchCrns, canSave);
     shadow.append(style, panel);
   }
 
@@ -287,20 +345,45 @@
     const saved = await chrome.storage.local.get({ [watchKey]: [], [snapshotKey]: null, [observedKey]: {}, [alertsKey]: [] });
     const watchCrns = (Array.isArray(saved[watchKey]) ? saved[watchKey] : []).map(String);
     const watched = new Set(watchCrns);
+    const term = pageTerm();
+    if ((term?.code || '') !== pageTermCode) {
+      pageTermCode = term?.code || '';
+      liveSections.clear();
+      liveMissAt.clear();
+    }
+    if (!backendTerm && (!backendUnavailable || Date.now() - backendTriedAt > 60000)) {
+      backendTriedAt = Date.now();
+      const info = await sendMessage({ type: 'asb-connect' });
+      if (info) {
+        backendTerm = { code: info.summary.term, label: info.summary.termLabel };
+        backendUnavailable = false;
+      } else {
+        backendUnavailable = true;
+      }
+    }
     const rows = visibleRows();
     const lookup = new Map();
-    for (const item of saved[snapshotKey]?.sections || []) lookup.set(String(item.crn), item);
+    for (const item of saved[snapshotKey]?.sections || []) {
+      if (!pageTermCode || !item.term || item.term === pageTermCode) lookup.set(String(item.crn), item);
+    }
     for (const [crn, section] of liveSections) lookup.set(crn, section);
+    const requestTerm = term?.code || backendTerm?.code || '';
     const needed = [...new Set([...rows.map(row => row.crn), ...watchCrns])].filter(crn =>
       !lookup.has(crn) && !liveRequested.has(crn) && !(liveMissAt.get(crn) > Date.now() - 60000)
     );
     if (needed.length) {
       for (const crn of needed) liveRequested.add(crn);
       try {
-        chrome.runtime.sendMessage({ type: 'asb-sections', crns: needed }, response => {
+        chrome.runtime.sendMessage({ type: 'asb-sections', crns: needed, term: requestTerm }, response => {
           const error = chrome.runtime.lastError;
           for (const crn of needed) liveRequested.delete(crn);
-          if (error || !response?.ok) return;
+          if (error || !response?.ok) {
+            backendUnavailable = true;
+            backendTriedAt = Date.now();
+            queueScan();
+            return;
+          }
+          backendUnavailable = false;
           const sections = Array.isArray(response.sections) ? response.sections : [];
           for (const section of sections) liveSections.set(String(section.crn), section);
           for (const crn of needed) {
@@ -312,11 +395,17 @@
         for (const crn of needed) liveRequested.delete(crn);
       }
     }
+    const termCompatible = !term?.code || !backendTerm?.code || term.code === backendTerm.code;
+    const conflictLookup = termCompatible ? lookup : new Map();
     const observed = { ...(saved[observedKey] || {}) };
     let changed = false;
     const newAlerts = [];
     for (const row of rows) {
-      renderRow(row, saved, lookup.get(row.crn) || null, lookup);
+      const candidate = lookup.get(row.crn) || null;
+      const section = candidate && rowMatchesSection(row, candidate) ? candidate : null;
+      const note = section ? '' : sectionNote(candidate, term);
+      const canSave = termCompatible && (!candidate || Boolean(section));
+      renderRow(row, saved, section, conflictLookup, note, canSave);
       if (!row.status) continue;
       const previous = observed[row.crn];
       if (watched.has(row.crn) && previous === 'closed' && row.status === 'open') {
@@ -341,12 +430,11 @@
   }
 
   function queueScan() {
-    if (queued || document.visibilityState !== 'visible') return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
+    if (document.visibilityState !== 'visible') return;
+    clearTimeout(scanTimer);
+    scanTimer = setTimeout(() => {
       scanChain = scanChain.then(scan).catch(() => {});
-    });
+    }, 100);
   }
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -361,6 +449,7 @@
   const observer = new MutationObserver(queueScan);
   observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-label', 'title'] });
   document.addEventListener('visibilitychange', queueScan);
+  document.addEventListener('scroll', queueScan, { capture: true, passive: true });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type !== 'asb-detect') return;
@@ -372,6 +461,9 @@
       title: document.title,
       count: rows.length,
       overlayCount: document.querySelectorAll(`[${overlayAttribute}]:not(tr)`).length,
+      pageTerm: pageTerm(),
+      backendTerm,
+      backendUnavailable,
       bodyCrns: [...new Set(bodyText.match(/(?<!\d)\d{5}(?!\d)/g) || [])].length,
       hasCrnLabel: /\bcrn\b/i.test(bodyText),
       rows: rows.slice(0, 20).map(row => ({

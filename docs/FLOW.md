@@ -29,6 +29,7 @@ Treat the browser extension as the main course comparison surface, like UT Regis
 - In the extension popup or visible Schedule Builder row, show section number, CRN, meeting times, public status and source, historical course grade summary, instructor grade match, and any requirement fit with its reason.
 - The extension shows a **Search RMP for [instructor]** link. It does not fetch, cache, display, or redistribute RMP ratings or reviews without the permission required by `docs/VISION.md`.
 - Use **Save section** to keep a CRN in the local workspace. Label public open/closed flags as flags, not seat counts. Show a user's own visible status only when the extension can read it on the open page.
+- Match sections by the Schedule Builder term and the course code in the row. Never resolve a CRN across terms, because CRNs are reused. If the terms differ, say which term the page shows and which term ASB+ has, and do not show section details or allow saving.
 - Next action: save a section or compare another search result.
 
 ### 3. Check the saved schedule

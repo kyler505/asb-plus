@@ -298,7 +298,7 @@ async function refreshSavedFlags() {
   try {
     await resolveSavedSections();
     if (!current.connected) return;
-    const response = await send({ type: 'asb-refresh-saved', crns: current.saved });
+    const response = await send({ type: 'asb-refresh-saved', crns: current.saved, term: current.summary?.term });
     for (const section of response.sections || []) current.sections.set(section.crn, section);
     if (response.changed?.length) {
       const observedAt = new Date().toLocaleString();
@@ -322,7 +322,7 @@ async function resolveSavedSections() {
   const missing = current.saved.filter(crn => !current.sections.has(crn));
   if (missing.length && current.connected) {
     try {
-      const response = await send({ type: 'asb-sections', crns: missing });
+      const response = await send({ type: 'asb-sections', crns: missing, term: current.summary?.term });
       for (const section of response.sections || []) current.sections.set(section.crn, section);
     } catch {
       // Fall back to the optional planner snapshot.
@@ -493,7 +493,7 @@ async function mutateSaved(crn) {
   document.querySelector('#saved-count').textContent = String(current.saved.length);
   if (saving && !current.sections.has(crn) && current.connected) {
     try {
-      const response = await send({ type: 'asb-sections', crns: [crn] });
+      const response = await send({ type: 'asb-sections', crns: [crn], term: current.summary?.term });
       for (const section of response.sections || []) current.sections.set(section.crn, section);
     } catch {
       // The missing-card path covers an unavailable backend.
@@ -603,7 +603,7 @@ importButton.addEventListener('click', async () => {
     updateSnapshotInfo();
     if (current.saved.length && current.connected) {
       try {
-        const response = await send({ type: 'asb-sections', crns: current.saved });
+        const response = await send({ type: 'asb-sections', crns: current.saved, term: current.summary?.term });
         for (const section of response.sections || []) current.sections.set(section.crn, section);
       } catch {
         // Saved cards keep their previous requirement context.
