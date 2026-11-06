@@ -24,19 +24,21 @@
 - Find public sections for a confirmed rule using its course codes and entered section constraints. Add matching CRNs to local schedule choices; stale CRNs are reported, not silently replaced.
 - Plan, audit, requirement, and profile data stay in IndexedDB. The app does not send these records to its server.
 - The unpacked Manifest V3 extension reads public sections, historical course and instructor grades, and instructor data live from the local ASB+ backend at `http://localhost:8000` through the SSH tunnel. A background service worker owns those requests; its host permission is limited to Schedule Builder and loopback. It makes no third-party requests.
-- The extension popup connects automatically and shows the backend term and counts. **Find sections** searches live sections by course, instructor, title, or CRN. It shows meeting times, source and freshness, public flags, historical grade context, instructor grade matches, user-clicked RMP search links, requirement fits, and conflicts with saved sections.
-- Save sections from the popup or a visible Schedule Builder row. Saved section data is cached in extension-local storage. The Saved view compares meeting-time conflicts and preserves section alerts.
-- The in-page overlay adds meeting times, grade and requirement context, instructor grade summaries, a direct RMP search link, a visible status observation, conflict context, and a save action to rows with a visible five-digit CRN. It resolves those CRNs through the backend service worker and falls back to any imported planner data.
-- Alerts appear for an observed visible closed/full-to-open change and for public open/closed flag changes on saved CRNs, tracked separately from the cache. The extension does not reload, modify, or submit the Schedule Builder page.
-- Importing a planner snapshot is optional and now adds only requirement rules. It does not replace live section data.
-- The extension parser requires a visible row with an identifiable five-digit CRN. It recognizes explicit open/closed, full, and available wording. It does not recognize status text it cannot parse, so the overlay can still show section details without a visible status. **Backend and planning data > Check Schedule Builder page** reports detected CRNs, parsed statuses, element classes, and whether a CRN label appears in page text.
+- The popup remains available for extension-local data and backend settings. On supported signed-in Spring 2027 College Station options, Add Courses, and course routes, the in-page workspace replaces the native main content after route, term, backend, exact-lookup, and saved-data checks; native navigation remains visible.
+- Find sections searches course, title, instructor, five-digit CRN, or attributes. Cards show section meetings and details, public flags, readable page status, historical grade context, requirement fits, saved conflicts, and source/update information. Numeric seats are shown only from a visible numeric `Seats Open` cell.
+- Exact CRN requests use `/api/sections?term=202711&crns=...`, in batches of at most 50. Returned term and CRNs are validated. Unknown CRNs produce no section.
+- Plan & rank computes combinations locally using historical GPA and A/B data. Evaluation is capped at 25,000 combinations and 12 displayed options; incomplete meeting data is labeled. Public flags and time preferences are not ranking inputs.
+- Review CRNs shows selected section details, meeting conflicts or unknowns, public flags, and exact copyable CRNs. Kyler chooses By CRN in native Add Courses, uses the native cart, and clicks Register himself. The handoff link leaves Add Courses native until he explicitly reopens the workspace; no cart or registration API is called.
+- Unsupported routes, term/backend mismatch, or later data/search/ranking failures restore the native page. **Use original Schedule Builder** is a persistent local kill switch. Optional planner snapshot import adds only requirement rules; private plan, audit, and transcript data stay local.
 - Preflight lets the user enter a registration-window time and IANA time zone. It shows a local countdown, handles elapsed times, and rejects local times that do not exist during a daylight-saving clock change.
 - The user can maintain a local Holds/Action Items checklist with editable completion state. ASB+ does not read Howdy to detect or verify holds.
 - A ranked schedule can become the primary ordered CRN list. The user can reorder courses, record why the order matters, and add backup CRNs only from generated schedules that fit the other chosen primary sections. Stale backups stay visible and are marked for manual verification.
 - The copy action copies primary CRNs only. If clipboard access fails, ASB+ selects the list for manual copying. Howdy and Schedule Builder links open in separate tabs; the app cannot submit enrollment.
 - Countdown, checklist, ordered CRNs, ordering reason, and backup CRNs stay in browser local storage and are not sent to the server.
 
-## Verified live integration (Nov 6, 2026)
+## Earlier live overlay integration (Nov 6, 2026)
+
+These notes verify the previous row-overlay build. The overlay has since been replaced by the Spring 2027 in-page workspace.
 
 - Loaded `extension/` unpacked in Chrome for Testing 150 against the ASB+ backend on hp through the `localhost:8000` SSH tunnel.
 - The popup connected and showed Spring 2027, 20,703 sections, and 5,007 courses.
@@ -48,19 +50,29 @@
 - The overlay scanned on DOM changes, scrolling, and visibility changes. A timer debounce replaced `requestAnimationFrame`, because Chrome throttles rAF in an occluded window and the overlay would otherwise never attach.
 - The extension action was pinned in the toolbar (`isOnToolbar: true`), with one Chrome window and one Schedule Builder tab.
 
+
+## Verified live rebuild
+
+- Synced the unpacked extension source to `/Users/kcao/.asb-plus-extension-live/` and reloaded it in the same signed-in live Chrome window.
+- On the Spring 2027 College Station options page, the workspace activated after DOM and backend checks; the native navigation remained visible. Header reported term Spring 2027 and 20,703 sections.
+- `CSCE 482` search returned 10 sections with meeting blocks and historical grade context. Exact CRN `37075` returned one Spring 2027 CSCE 482 section.
+- Attribute search returned 100 results, the public-open filter returned only open-flag sections, and Load more appended 19 more results.
+- Ranked the six course codes already on the page: 100 non-conflicting combinations evaluated locally, 12 displayed, and incomplete meeting data explicitly labeled.
+- Review CRNs showed section details, exact CRNs, and meeting conflicts. Opening native Add Courses left the native page visible and the cart at 0; no section was added and Register was not clicked.
+- Temporarily pointed the extension backend setting at unreachable localhost port 1. The workspace failed open, restored native main visibility, and displayed an explicit backend-unavailable notice. Restored `http://localhost:8000`, reloaded the page, and confirmed the workspace active.
+- Disabled the workspace, confirmed the local kill switch remained off after page reload, then explicitly re-enabled it. Final live page is the Spring 2027 options page with the workspace active.
+
 ## Stubbed or not included
 
-- RMP ratings and reviews are not embedded. The extension only opens an RMP search when the student clicks an instructor link. Automated access and redistribution remain disabled until permission and approved use are resolved.
-- The signed-in Schedule Builder table layout is verified for the term and course pages observed on Nov 6. Other terms or a redesigned page may differ; use **Check Schedule Builder page** to diagnose detected CRNs, statuses, and element classes.
-- The live section table shows seat counts in a column rather than the words Open/Closed, so those cells are not parsed as a status. The overlay shows the public Howdy flag and labels the visible status as not recognized. It does not turn the visible number into a seat count.
-- Section matching requires the Schedule Builder term and the ASB+ term to agree, and the live row text to contain the backend course code. The overlay does not fall back to CRN-only matching across terms, because CRNs are reused.
-- The extension's requirement context comes from rules in an optional planner snapshot import. Private plan, audit, and transcript data stay in the planner.
-- The public section data does not reliably link separate lecture and lab CRNs. ASB+ does not guess the pairings; confirm separate components in Howdy.
-- Schedule ranking does not use walking distance because reliable campus paths are not available.
-- Built-in catalog program requirements, automatic Howdy UGDP/audit sync, and official audit or eligibility checks. Users must enter or import rules for their program and catalog year.
-- OCR for scanned PDFs. Plan and audit PDF text extraction runs locally in the browser, but requires extractable text.
+- RMP ratings and reviews are not embedded. The extension only opens a user-clicked RMP search link; automated access and redistribution remain disabled until permission and approved use are resolved.
+- The rebuild supports Spring 2027 College Station only. Other terms and unsupported page routes remain native.
+- Live page status and numeric seats depend on readable native DOM. Numeric seats are displayed only from a visible numeric `Seats Open` cell; backend public flags are not counts.
+- Selected sections are sent to native Schedule Builder by copying CRNs, not through a cart API. Schedule Builder owns cart state, eligibility, and registration; Kyler clicks Register himself.
+- Requirement context comes from rules in an optional planner snapshot. Private plan, audit, and transcript data stay in browser storage.
+- Public section data does not reliably link separate lecture and lab CRNs. The extension does not guess those pairings; confirm components in Schedule Builder.
+- Built-in catalog program requirements, automatic Howdy UGDP/audit sync, and official audit or eligibility checks are not included. Users must enter or import requirement rules.
+- OCR for scanned PDFs is not included. Plan and audit PDF text extraction runs locally in the browser and requires extractable text.
 - Holds are not verified, and the user enters ticket times manually. ASB+ does not check holds, determine ticket eligibility, or submit registration.
-- Public Howdy data does not provide numeric seat counts. Confirm availability, eligibility, and registration in Howdy.
 - The supplied `data/s27.json` and local SQLite database are not committed. Grade imports are local and must be repeated on another installation.
 
 ## Run
@@ -81,12 +93,11 @@ cargo run --release -- import-grades /path/to/report.pdf
 
 The importer also accepts CSV. Use `cargo run --release -- refresh-howdy` to refresh public sections from the command line.
 
-Start the ASB+ backend on hp and keep the `localhost:8000` tunnel open. Open the extension popup; it connects automatically. Use **Find sections** to search live sections, save CRNs, and open RMP search links for instructors. Use **Saved** to check meeting-time conflicts. Use **Refresh from ASB+** after refreshing public sections in ASB+, or to reload after the backend data changes. Optionally import a planner snapshot under **Backend and planning data** to add requirement rules; no section snapshot is needed. The extension shows RMP links only; it does not fetch or display ratings.
+Start the ASB+ backend on hp and keep the `localhost:8000` tunnel open. Open the signed-in Spring 2027 College Station Schedule Builder page. The in-page workspace connects automatically, searches sections, compares saved CRNs, ranks combinations locally, and prepares a native cart handoff. Copy CRNs from **Review CRNs**, use native Add Courses by CRN, then use Schedule Builder's cart and click Register yourself. The popup remains available for backend and planning data settings. Optional planner snapshot import adds only requirement rules; no section snapshot is needed.
 
-The signed-in Schedule Builder parser is still unverified. It reads visible rendered row text only and needs a five-digit CRN for each row. Use **Check Schedule Builder page** on the active tab to report what it detects.
+The rebuild supports Spring 2027 options, Add Courses, and numeric course-detail routes. Other routes use the original Schedule Builder. If a page, backend, or data check fails, use the native page; **Use original Schedule Builder** disables replacement mode locally.
 
 ## Next steps
 
-1. Verify the parser on a signed-in Schedule Builder page in the student's own browser. Run **Check Schedule Builder page** and adjust selectors or status wording if the real DOM differs.
-2. Resolve permission and approved use before considering RMP ratings or reviews.
-3. Add a path for the student's requirement rules without a manual planner snapshot export, while keeping private plan, audit, and transcript data out of the extension and server.
+1. Resolve permission and approved use before considering RMP ratings or reviews.
+2. Users who need requirement context must import or enter local planner rules; no official rules or audit data are synced.

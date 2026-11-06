@@ -1,5 +1,7 @@
 # Schedule Builder rebuild plan
 
+**Implemented scope:** Spring 2027 (term `202711`) on supported signed-in planning routes. Exact CRN lookup, client-side ranking, and manual native-cart handoff are confirmed. Kyler remains responsible for all official registration actions.
+
 ## Goal and hard boundary
 
 Make the extension the primary course discovery, comparison, and schedule-planning workspace inside the signed-in Schedule Builder page. Reduce switching between Schedule Builder, ASB+, and the planner. Schedule Builder/Howdy remain the authority for registration eligibility, current availability, holds, and enrollment.
@@ -10,43 +12,41 @@ The extension must never auto-register, submit a registration request, handle Ne
 
 | Surface | Rebuild treatment | Boundary |
 | --- | --- | --- |
-| Build Schedule / options home | Replace the primary planning workspace | Keep the native route and term/session state detectable. Show term, course search, chosen courses, schedule constraints, saved choices, and result ranking in one workspace. |
-| Add Courses | Replace the By Subject / By Section Attributes / By Instructor / By CRN discovery flow | Provide one search across course, title, instructor, CRN, and attributes; show results with filters and source/freshness. Reuse equivalent capability, not TAMU's private UI or API. |
-| Course and section details | Replace section discovery and comparison | Inline meeting blocks, observed page status/seats when readable, public availability flag, historical grades, instructor grade match, user-clicked RMP search link, requirement fit, and conflict explanation. Keep lecture/lab components distinct; never infer pairings. |
-| Schedule generation/results | Replace the planning results and comparison surface | Rank conflict-free choices with explainable factors and let the student pin, compare, and revise alternatives. Show missing data as unknown, not zero. Personal constraints/rules stay local. |
-| Shopping Cart | Leave the native cart intact for the handoff | The extension may show a preflight summary and exact CRNs, but it must not call cart APIs or synthesize cart state. Kyler reviews and uses Schedule Builder's real Send to Cart / cart controls. |
-| Current Schedule and registration | Leave the native current-schedule, Register-by-CRN, edit, registration-instructions, and result screens intact | These are TAMU-owned authenticated/transactional flows. Kyler clicks the real Register control and completes any official steps. Extension never submits or impersonates that action. |
-| Term/session selection, sign-in, help, sign-out, official eligibility/holds | Leave native | Do not replace authentication, official notices, term selection, eligibility, holds, or registration outcomes. Detect the selected term and return to the original page on mismatch or uncertainty. |
+| Build Schedule / options home | Replace the primary planning workspace on Spring 2027 options, Add Courses, and course routes | Show Find sections, Plan & rank, Saved, and Review CRNs together. Keep the native navigation visible and leave the Schedule Builder route and term unchanged. |
+| Add Courses | Replace discovery on supported planning routes | Search course, title, instructor, five-digit CRN, or section attributes. Filter public open flags. Exact CRNs use the term-scoped lookup. |
+| Course and section details | Compare sections inline | Show meeting blocks, readable page status and exact visible seat cells when present, public availability flag, historical grades, instructor match, user-clicked RMP search, local requirement fits, and conflicts. Never infer lecture/lab pairings. |
+| Schedule generation/results | Rank locally in the browser | Rank non-conflicting combinations using available historical GPA and A/B outcomes. Plan state and scores stay local. Unknown meeting data is disclosed; combinations are capped at 25,000 evaluations and 12 displayed results. |
+| Shopping Cart | Leave the native cart intact | Review selected section details and exact CRNs, copy the list, then use Schedule Builder's native Add Courses by CRN and cart controls. No cart API or synthetic cart state. |
+| Current Schedule and registration | Leave native current-schedule and registration screens intact | Kyler reviews the native cart and clicks the real Register control himself. Extension never submits registration or impersonates that action. |
+| Term/session selection, sign-in, help, sign-out, official eligibility/holds | Leave native | Only the Spring 2027 College Station planning routes are supported. Keep term selection, authentication, official notices, eligibility, holds, and registration outcomes native. |
 
 The live Spring 2027 inspection confirmed native Build Schedule, Add Courses (Subject/Attributes/Instructor/CRN/Degree Planner), Shopping Cart, and Current Schedule entry points. The inspected Spring 2027 cart and current schedule were empty; this plan does not assume or alter a non-empty cart flow.
 
 ## In-page UI and data flow
 
-1. A Manifest V3 content script runs only on `https://tamu.collegescheduler.com/*`. It mounts one isolated Shadow DOM root under `document.body`; the shadow root owns styles, event handlers, and the rebuilt workspace. Do not add a UI framework just to restyle the existing React app.
-2. Start in additive mode: show a small ASB+ entry point and leave the original page visible. Parse the visible term and visible course/section text only. Ask the local background service worker for public data from `http://localhost:8000`; use a bounded cache. Never make authenticated page requests or inspect hidden app state.
-3. Replace a supported planning route only after the health check has found a known route, selected term, course/section anchors, and readable row content. Keep the Schedule Builder DOM mounted; do not overwrite its React root. Apply a scoped `asb-rebuild-active` class only after the replacement view has rendered successfully. The extension owns the overlay DOM; it does not patch the site's React components or internal state.
-4. Keep an always-visible **Show Schedule Builder** control. It removes the active class and overlay, restores the original DOM and scroll position, and leaves the route and term unchanged. Route changes, page errors, or failed data/DOM checks also return to the native page.
-5. Each section view joins backend records only when term and course code match the visible page row. CRNs can be reused across terms. Include the backend term, visible page term, source, and observation time. If term/course cannot be established, show no backend section details and disable saving that row. Public open/closed flags and visible seat cells are separate facts; numeric seats are shown only if directly present in a readable, current source.
-6. Compute meeting conflicts and requirement fits locally. Keep private degree/audit data out of messages to the background worker and backend. Historical grade outcomes and instructor matching must disclose term, sample size, source, and unmatched/ambiguous status. RMP opens a user-clicked search link only.
+1. The Manifest V3 content script runs only on `https://tamu.collegescheduler.com/*`. It mounts one isolated Shadow DOM root under `document.documentElement`. The native navigation remains visible; the native `<main>` is hidden only while the replacement workspace is active.
+2. The supported route is Spring 2027 College Station options, Add Courses, or a numeric course-detail route. Check the visible term when present, route, app root, native navigation, and planning heading before replacement. Read only visible page text and elements; never inspect hidden app state or make authenticated page requests.
+3. Before hiding the native page, connect to the localhost backend, confirm term `202711`, probe the exact CRN lookup contract, validate saved sections, and render the replacement. Search requests specify the term. Section records are accepted only when term and requested CRN match.
+4. **Use original Schedule Builder** restores the native page and is a persistent local kill switch. Unsupported routes, DOM checks, data validation, backend failures, or search/ranking errors restore native visibility without retry loops.
+5. A visible CRN is only a local observation. Numeric seats appear only when read directly from a visible `Seats Open` cell. Public open/closed flags are separate; no page or backend value is represented as a live seat count.
+6. Compute conflicts and schedule ranking in the browser. Private plan state never reaches the backend. The ranking uses historical GPA and A/B data only; no server ranking endpoint or private preferences are involved.
 
 ## Native cart and registration handoff
 
-The rebuilt workspace is a planning surface, not a registration client. On **Review in Schedule Builder**, show a preflight with selected course, section, CRN, meeting blocks, conflicts, unknown data, and a copyable ordered CRN list. Then restore the native page and navigate to the corresponding real Schedule Builder course/section or cart route without submitting a form or calling a private endpoint. The student chooses/adds sections and clicks the native Send to Cart/cart controls. From the native cart, Kyler reviews and clicks the real Register control himself; any registration-by-CRN or waitlist action stays in Schedule Builder's native Current Schedule flow.
-
-Never auto-click a native Add, Send to Cart, Register, Submit, or confirmation button. Never write into Schedule Builder's internal React store, call its cart/registration network operations, inject CRNs into a registration form, or claim the plan is registered. If there is no stable, visible native route/control for a selected section, stop at the CRN handoff and ask Kyler to continue manually.
+The rebuilt workspace's **Review CRNs** view shows the chosen sections, meeting blocks, conflicts or incomplete data, public flags, and exact copyable CRNs. Its native Add Courses link closes the workspace and keeps that Add Courses route native until Kyler explicitly reopens ASB+. Kyler chooses By CRN, pastes the list, selects matching native sections, and uses Schedule Builder's own cart controls. Kyler reviews the native cart and clicks Register himself. No automatic Add, Send to Cart, Register, form fill, or private endpoint call.
 
 ## DOM-change fallback and kill switch
 
-Fail open: the extension must not hide or disable the original Schedule Builder page until a complete health check and a rendered replacement view both succeed. Maintain a versioned selector/route adapter for each supported page shape. Validate required anchors, readable visible rows, term parsing, and expected native controls on initial load and route/DOM changes.
+Fail open: the extension hides no native content until route, term, backend, exact lookup, saved data, and replacement rendering checks succeed. The native Schedule Builder DOM remains mounted and is never patched.
 
-If any required selector disappears, a parser throws, the page term is unknown, or the adapter sees an unsupported shape:
+On unsupported routes or failed DOM/data checks, backend errors, or an exception during search or ranking:
 
-- Remove `asb-rebuild-active`, detach the extension overlay, and restore original visibility/focus/scroll.
-- Show a small, non-blocking notice that the rebuild is unavailable and Schedule Builder is unchanged; do not retry-loop.
-- Record only local diagnostic facts (route class, adapter version, missing selector names, timestamp); never record page text containing personal data or credentials.
-- Offer **Use original Schedule Builder** as a persistent local kill switch. It disables replacement mode until the student explicitly turns it back on. A development-only query flag can force native mode for support.
+- Remove `data-asb-rebuild-active`, detach the workspace, and restore the native page.
+- Show a non-blocking local notice with the reason; do not retry-loop.
+- Keep **Use original Schedule Builder** as a persistent local kill switch. Re-enabling is explicit.
+- Never leave a blank shell or partially hidden native page.
 
-The native-page fallback must work when the backend is offline. In that case retain cached public data only with an explicit stale label; disable any action that depends on unverified section matching. Never leave a blank shell or partially hidden native page.
+The native-page fallback works when the backend is offline. This build restores the original page instead of presenting stale cached section data as current. Cached records remain local and carry their source/update time when the workspace is available.
 
 ## Performance and accessibility goals
 
@@ -58,25 +58,23 @@ The native-page fallback must work when the backend is offline. In that case ret
 - Keyboard navigation, visible focus, semantic labels, screen-reader status announcements, reduced-motion support, and usable zoom/reflow are required. Color is never the only availability/conflict signal.
 - Measure route mount, search, render, and fallback with local Performance API marks during smoke testing. No analytics or remote telemetry.
 
-## Backend work requested from hp/t12
+## Backend contract confirmed with hp/t12
 
-The extension must use typed public data from the localhost service worker bridge. No endpoint may accept student plans, audit/transcript content, credentials, or registration actions.
+The extension uses typed public data from the localhost service worker bridge. No endpoint accepts student plans, audit/transcript content, credentials, or registration actions.
 
-1. **Term contract:** return canonical term code, display label, campus, and data freshness from `/api/terms` and `/api/summary`. The client must request a term explicitly and reject mismatches. Current backend observations were Spring 2027 while the signed-in page initially showed Fall 2026; this is a correctness blocker for a full live replacement.
-2. **Search contract:** support one paginated section/course query by term, course code, title, instructor, CRN, and section attributes, with filters for campus, meeting days/time, public open flag, GPA/A/B history, and instruction mode. Return total count, stable sort/pagination, and normalized section/course identity. Existing `/api/sections` can be extended if its contract remains clear.
-3. **Exact/batch lookup:** add a term-scoped exact section lookup and a batch lookup for selected CRNs, with bounded request size. CRN alone is not a key. Return enough data for meeting conflicts and visible comparison without downloading all sections.
-4. **Section DTO:** expose normalized meetings, section component/type, instructor display names and match confidence, attributes, prerequisites/restrictions when sourced, public open/closed flag, data source, and per-record updated time. Keep numeric seats/capacity/enrollment `null` unless a verified source supplies those exact values; never convert public flags into counts.
-5. **Grades:** support course and instructor historical distributions with term/sample count/source; distinguish no records from zero outcomes. Return ambiguous or absent instructor matches explicitly, not as a guessed professor profile.
-6. **Freshness and errors:** include source/update timestamps, stale status, request term, and backend term in responses. Preserve last-known-good data on ingest failure and return typed errors/rate limits so the extension can show cached/stale/offline states honestly.
-7. **Schedule computation:** please advise whether hp wants the extension to keep combination/ranking computation client-side (private constraints stay local) or add a stateless public-section candidate endpoint. Do not accept or persist private preferences or requirement rules. A backend endpoint is optional only if it returns raw candidates and preserves local ranking/explanation.
-8. **Data coverage question:** can hp ingest the current Fall 2026 term as well as Spring 2027, with per-term refresh and source freshness? If not, return an explicit unavailable-term response; never serve Spring 2027 sections for a Fall 2026 page.
+1. **Term:** the extension requires Spring 2027 term `202711`, checks the backend summary, and rejects a different term. No Fall 2026 or other-term fallback is supported.
+2. **Search:** `/api/sections` supports term-scoped search, pagination, course/title/instructor queries, attributes, and public open filters. The client bounds results and validates every returned section's term.
+3. **Exact/batch CRN lookup:** hp/t12 added `GET /api/sections?term=202711&crns=37075,37077` in commit `51bd00f`. The contract is exact term plus five-digit CRNs, maximum 50 per request, empty results for unknown CRNs, and typed HTTP 400 errors for invalid term or CRN lists. The extension batches larger lists and validates every returned term and CRN.
+4. **Section data:** normalized records include meetings, section identity and type, instructors, attributes, public open/closed flag, source, update time, and historical grade context. Numeric seats remain unknown unless directly present in a readable native `Seats Open` cell.
+5. **Grades:** course and exact normalized-name instructor history expose available samples, terms, sources, and update times. Missing data is not treated as a zero outcome; uncertain instructor matches are not guessed.
+6. **Offline behavior:** failed required checks or later search/ranking requests restore the native page. The extension does not use stale cache to imply current availability.
+7. **Schedule computation:** ranking is confirmed client-side. The backend provides section candidates only; private plan data and preferences stay in the browser.
 
-RMP ingestion/ratings, user-plan storage, holds, authentication, and registration/cart operations are explicitly out of scope. hp/t12 should reply with which contracts/data coverage it can support, likely endpoint/DTO shapes, and any source/permission blockers before implementation begins.
+RMP ingestion/ratings, user-plan storage, holds, authentication, and registration/cart operations are explicitly out of scope.
 
-## Decisions needed before implementation
+## Decisions confirmed
 
-- Confirm that the replacement scope above is acceptable, especially leaving native cart/current schedule/registration screens intact.
-- Confirm whether course/component selection should only prepare a CRN handoff or whether any native, user-clicked Add-to-Cart control may be surfaced in place. Default: no programmatic control activation; Kyler operates native controls.
-- Confirm whether Fall 2026 must be supported in addition to Spring 2027 and which section source may supply it.
-- Confirm whether schedule generation/ranking remains in the extension so private time preferences stay local.
-- Confirm what exact layout/route shapes are in scope after the signed-in DOM is inspected; selectors observed on one term are not a compatibility guarantee.
+- Scope is Spring 2027 only.
+- Native Schedule Builder owns Add Courses, the cart, and registration. The extension hands off CRNs; Kyler clicks Register himself.
+- Schedule ranking remains client-side.
+- Keep the fail-open native fallback and persistent kill switch.
