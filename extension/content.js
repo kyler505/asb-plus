@@ -472,18 +472,13 @@
       if (groups.length !== state.courses.length) throw Error('At least one planned course has no returned Spring 2027 sections.');
 
       const limit = 25000;
-      let visited = 0;
+      let explored = 0;
       let capped = false;
       const found = [];
       const chosen = [];
 
       const walk = index => {
-        if (visited >= limit) {
-          capped = true;
-          return;
-        }
         if (index === groups.length) {
-          visited++;
           let complete = true;
           let gradeTotal = 0;
           let gradeCount = 0;
@@ -510,10 +505,11 @@
         }
 
         for (const section of groups[index]) {
-          if (visited >= limit) {
+          if (explored >= limit) {
             capped = true;
             break;
           }
+          explored++;
           let conflict = false;
           for (const prior of chosen) {
             for (const meeting of section.meetings || []) {
@@ -540,7 +536,8 @@
         return leftCrns.localeCompare(rightCrns);
       });
       state.scheduleResults = found.slice(0, 12).map((item, index) => ({ ...item, index: index + 1 }));
-      setStatus(`${found.length} non-conflicting combination${found.length === 1 ? '' : 's'} evaluated locally${capped ? `; evaluation stopped at ${limit.toLocaleString()} combinations, so ranking is partial` : ''}. Historical score averages available GPA and A/B shares equally; public flags are not seat counts.`);
+      const capMessage = capped ? `; search stopped after ${limit.toLocaleString()} section candidates, so ranking is partial` : '';
+      setStatus(`${found.length} non-conflicting combination${found.length === 1 ? '' : 's'} evaluated locally${capMessage}. Historical score averages available GPA and A/B shares equally; public flags are not seat counts.`);
     } catch (error) {
       fallback(`ASB+ returned to the original Schedule Builder because schedule ranking could not complete: ${error.message}`);
     }

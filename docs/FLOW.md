@@ -27,7 +27,7 @@ The extension is the course discovery and planning workspace inside the signed-i
 
 - **Plan & rank** starts with course codes visible on the native Schedule Builder page. Add additional courses from the current search or remove codes locally.
 - The browser loads Spring 2027 section candidates and ranks non-conflicting combinations. Available historical GPA and A/B outcomes contribute equally to the score. Public open flags and time preferences are not ranking inputs.
-- Search and schedule evaluation are bounded. A schedule run evaluates at most 25,000 combinations and displays up to 12. A capped run is labeled partial.
+- Search and schedule evaluation are bounded. Ranking considers at most 25,000 candidate section extensions and displays up to 12 schedules. A capped run is labeled partial.
 - Missing meeting data is disclosed and requires manual verification. Separate lecture/lab CRNs are not paired by inference.
 
 ## 4. Review CRNs and hand off to the native cart
