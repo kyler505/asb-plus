@@ -21,8 +21,8 @@ function renderRequiredSections() {
   const root = scheduleElement('#schedule-degree-choices');
   const entries = Object.entries(scheduleState.requiredSections).sort(([left], [right]) => left.localeCompare(right));
   root.innerHTML = entries.length
-    ? `<p class="degree-rule-summary">These CRN choices came from the local requirement picker. Schedule generation will use only the listed CRNs for each course. This selection stays in this browser.</p>${entries.map(([code, choice]) => `<article class="degree-rule-card"><h4>${scheduleEscape(code)}</h4><p>Allowed CRNs: ${choice.crns.map(scheduleEscape).join(', ')}</p>${choice.crns.map(crn => `<button class="button secondary remove-schedule-section" type="button" data-course="${scheduleEscape(code)}" data-crn="${scheduleEscape(crn)}" aria-label="Remove CRN ${scheduleEscape(crn)} from ${scheduleEscape(code)} schedule choices">Remove CRN ${scheduleEscape(crn)}</button>`).join(' ')}</article>`).join('')}`
-    : '<p class="degree-rule-summary">No requirement-specific CRNs selected. Schedule generation can use all public sections for each course.</p>';
+    ? `<p class="degree-rule-summary">These choices came from section cards or requirement matches. Schedule generation will use only the listed CRNs for each course. They stay in this browser.</p>${entries.map(([code, choice]) => `<article class="degree-rule-card"><h4>${scheduleEscape(code)}</h4><p>Chosen CRNs: ${choice.crns.map(scheduleEscape).join(', ')}</p>${choice.crns.map(crn => `<button class="button secondary remove-schedule-section" type="button" data-course="${scheduleEscape(code)}" data-crn="${scheduleEscape(crn)}" aria-label="Remove CRN ${scheduleEscape(crn)} from ${scheduleEscape(code)} schedule choices">Remove CRN ${scheduleEscape(crn)}</button>`).join(' ')}</article>`).join('')}`
+    : '<p class="degree-rule-summary">No sections chosen. Schedule generation can use all public sections for each course. Add sections above to limit the choices.</p>';
 }
 function toggleRequiredSection(code, crn) {
   const normalizedCode = String(code).trim().toUpperCase().replace(/\s+/g, ' ');
@@ -40,7 +40,6 @@ function toggleRequiredSection(code, crn) {
   input.value = codes.join(', ');
   renderRequiredSections();
   window.dispatchEvent(new CustomEvent('asb-schedule-section-choice-change', { detail: { code: normalizedCode, crn: normalizedCrn, included: !included } }));
-  scheduleElement('#schedule-status').textContent = `${normalizedCode} CRN ${normalizedCrn} ${included ? 'removed from' : 'added to'} requirement-specific schedule choices.`;
   return !included;
 }
 window.asbToggleScheduleCrn = toggleRequiredSection;
@@ -336,16 +335,21 @@ function rankSchedule(sections, preferences) {
   return { sections, score, crnKey, gpa, gpaCount: gpas.length, abRate, abCount: abRates.length, open, closed, unknownTime, startsBefore, endsAfter, timePenalty };
 }
 
-function formatDelta(value) {
-  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}`;
-}
 
 function scheduleExplanation(schedule) {
-  const gpa = schedule.gpa == null ? 'GPA not reported' : `GPA +${(schedule.gpa * 2).toFixed(1)} (${schedule.gpaCount}/${schedule.sections.length} courses)`;
-  const ab = schedule.abRate == null ? 'A/B not reported' : `A/B +${(schedule.abRate / 25).toFixed(1)} (${schedule.abCount}/${schedule.sections.length} courses)`;
-  const status = `public status ${formatDelta(schedule.open - schedule.closed)} (${schedule.open} open, ${schedule.closed} closed)`;
-  const time = schedule.timePenalty ? `time -${schedule.timePenalty.toFixed(1)} (${schedule.startsBefore.toFixed(1)} early hours, ${schedule.endsAfter.toFixed(1)} late hours)` : 'time preference met';
-  const unknown = schedule.unknownTime ? ` · ${schedule.unknownTime} meeting block(s) have no times and were not conflict checked` : '';
+  const total = schedule.sections.length;
+  const courseWord = total === 1 ? 'course' : 'courses';
+  const gpa = schedule.gpa == null
+    ? 'Historical GPA not reported'
+    : `Historical mean GPA ${schedule.gpa.toFixed(2)} across ${schedule.gpaCount} of ${total} ${courseWord}`;
+  const ab = schedule.abRate == null
+    ? 'Historical A or B grade share not reported'
+    : `Historical A or B grade share ${schedule.abRate.toFixed(1)}% across ${schedule.abCount} ${courseWord}`;
+  const status = `Public status: ${schedule.open} open, ${schedule.closed} closed; not live seat counts`;
+  const time = schedule.timePenalty
+    ? `${schedule.timePenalty.toFixed(1)} meeting hours outside your time preferences`
+    : 'Meeting times fit your preferences';
+  const unknown = schedule.unknownTime ? ` · ${schedule.unknownTime} meeting time(s) are missing and were not checked for conflicts` : '';
   return `${gpa} · ${ab} · ${status} · ${time}${unknown}`;
 }
 
@@ -361,11 +365,11 @@ function renderScheduleResults() {
         return `${meeting.days || 'Days not listed'} ${displayClock(meeting.start)}-${displayClock(meeting.end)}${place ? ` · ${place}` : ''}${meeting.type ? ` · ${meeting.type}` : ''}`;
       });
       if (!meetings.length) meetings.push('Time not listed (no time conflict can be checked)');
-      const publicStatus = section.open_flag === 'Y' ? 'Open flag' : section.open_flag === 'N' ? 'Closed flag' : 'Unknown';
+      const publicStatus = section.open_flag === 'Y' ? 'Open' : section.open_flag === 'N' ? 'Closed' : 'Not reported';
       const updated = section.updated_at ? new Date(section.updated_at * 1000).toLocaleString() : 'time unknown';
-      return `<tr><td>${scheduleEscape(`${section.subject} ${section.course} · ${section.section}`)}</td><td>${scheduleEscape(section.crn)}</td><td>${scheduleEscape(meetings.join(' · '))}</td><td>${scheduleEscape((section.instructors || []).join(', ') || 'Not listed')}</td><td>${publicStatus} · no numeric seats · ${scheduleEscape(section.source)} · updated ${scheduleEscape(updated)}</td></tr>`;
+      return `<tr><td>${scheduleEscape(`${section.subject} ${section.course} · ${section.section}`)}</td><td>${scheduleEscape(section.crn)}</td><td>${scheduleEscape(meetings.join(' · '))}</td><td>${scheduleEscape((section.instructors || []).join(', ') || 'Not listed')}</td><td>Public status: ${publicStatus} · seat count unavailable · ${scheduleEscape(section.source)} · updated ${scheduleEscape(updated)}</td></tr>`;
     }).join('');
-    return `<article class="schedule-option"><div class="schedule-option-head"><h3>Schedule ${index + 1} · score ${result.score.toFixed(2)}</h3><div class="card-actions"><button class="button secondary preflight-schedule" type="button" data-index="${index}">Use as primary CRN order</button><button class="button secondary compare-schedule" type="button" data-index="${index}">${selected ? 'Remove from comparison' : 'Compare this schedule'}</button></div></div><p class="subtext">${scheduleEscape(scheduleExplanation(result))}</p><div class="grade-table-wrap"><table><thead><tr><th>Course</th><th>CRN</th><th>Meeting blocks</th><th>Instructor</th><th>Public status</th></tr></thead><tbody>${classes}</tbody></table></div></article>`;
+    return `<article class="schedule-option"><div class="schedule-option-head"><h3>Option ${index + 1}</h3><div class="card-actions"><button class="button secondary preflight-schedule" type="button" data-index="${index}">Use this option as primary</button><button class="button secondary compare-schedule" type="button" data-index="${index}">${selected ? 'Remove from comparison' : 'Compare this schedule'}</button></div></div><p class="subtext">${scheduleEscape(scheduleExplanation(result))}</p><div class="grade-table-wrap"><table><thead><tr><th>Course</th><th>Section ID</th><th>Meeting times</th><th>Instructor</th><th>Public availability</th></tr></thead><tbody>${classes}</tbody></table></div></article>`;
   }).join('');
   scheduleElement('#schedule-more').hidden = showing >= results.length;
   renderScheduleComparison();

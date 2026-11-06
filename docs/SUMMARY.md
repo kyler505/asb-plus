@@ -10,6 +10,7 @@
 - Registrar records take precedence over matching anex records for the same course, term, and section.
 - Search current-term professors, view historical grade outcomes, correct ambiguous grade-name matches in browser local storage, and compare up to three courses or professors.
 - Professor grade names match automatically only when surname and first initial identify one current professor and one grade name. Users can search and confirm another match.
+- Guided four-step planning: enter course needs, choose sections, build schedules, and prepare for ticket day. The course list and selected sections carry forward in browser storage. Grade and instructor history appear on section cards, and degree-plan work is optional with rule matching in section selection.
 - Generate and rank every conflict-free combination for selected courses. The browser prunes conflicts as it enumerates; it shows the total and paginates results without truncating the set. Users can compare up to three schedules.
 - Each CRN's meeting blocks are checked together. The engine handles weekday overlap, boundary times, time preferences, and TBA meetings. Sections with unknown meeting times remain visible and are labeled as unchecked.
 - Schedule ranking is explainable: 2 times mean historical GPA, plus mean historical A/B percent divided by 25, plus public open flags, minus closed flags and hours outside the preferred time window. Missing grades are not scored. Public flag source and update time are shown; numeric seats are never inferred.
@@ -67,3 +68,4 @@ The live Schedule Builder parser has not been validated on its signed-in page. I
 ## Next steps
 
 1. Resolve permission and approved use before considering RMP.
+2. Test this flow with first-time students, especially course selection, degree imports, and the ticket-day checklist.

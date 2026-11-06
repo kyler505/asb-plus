@@ -190,9 +190,9 @@
     if (!state.order.length) {
       const empty = document.createElement('p');
       empty.className = 'preflight-empty';
-      empty.textContent = 'No primary CRN order saved yet.';
+      empty.textContent = 'No primary section order saved yet.';
       root.append(empty);
-      document.querySelector('#preflight-order-status').textContent = 'Generate schedules and choose “Use as primary CRN order” to begin.';
+      document.querySelector('#preflight-order-status').textContent = 'Generate schedules and choose “Use this option as primary” to begin.';
       updatePasteList();
       return;
     }
@@ -206,16 +206,16 @@
       title.textContent = `${index + 1}. ${item.courseCode}`;
       const primary = document.createElement('span');
       primary.className = 'preflight-primary-crn';
-      primary.textContent = `Primary CRN ${item.crn}`;
+      primary.textContent = `Primary section ID ${item.crn}`;
       head.append(title, primary);
       const actions = document.createElement('div');
       actions.className = 'card-actions';
       const up = makeButton('Move up', 'move-up', index === 0);
       const down = makeButton('Move down', 'move-down', index === state.order.length - 1);
       const remove = makeButton('Remove course', 'remove-course');
-      up.setAttribute('aria-label', `Move ${item.courseCode} earlier in the CRN order`);
-      down.setAttribute('aria-label', `Move ${item.courseCode} later in the CRN order`);
-      remove.setAttribute('aria-label', `Remove ${item.courseCode} from the CRN order`);
+      up.setAttribute('aria-label', `Move ${item.courseCode} earlier in the section order`);
+      down.setAttribute('aria-label', `Move ${item.courseCode} later in the section order`);
+      remove.setAttribute('aria-label', `Remove ${item.courseCode} from the section order`);
       up.dataset.index = String(index); down.dataset.index = String(index); remove.dataset.index = String(index);
       actions.append(up, down, remove);
       card.append(head, actions);
@@ -227,9 +227,9 @@
         const backupRow = document.createElement('li');
         const label = document.createElement('span');
         const stillAvailable = choices.some(choice => choice.crn === crn);
-        label.textContent = `Backup CRN ${crn}${stillAvailable ? '' : ' · not in the latest compatible schedules; verify in Howdy'}`;
+        label.textContent = `Backup section ID ${crn}${stillAvailable ? '' : ' · not in the latest compatible schedules; verify in Howdy'}`;
         const removeBackup = makeButton('Remove backup', 'remove-backup');
-        removeBackup.setAttribute('aria-label', `Remove backup CRN ${crn} for ${item.courseCode}`);
+        removeBackup.setAttribute('aria-label', `Remove backup section ID ${crn} for ${item.courseCode}`);
         removeBackup.dataset.course = item.courseCode;
         removeBackup.dataset.crn = crn;
         backupRow.append(label, removeBackup);
@@ -242,7 +242,7 @@
       select.dataset.backupSelect = item.courseCode;
       const placeholder = document.createElement('option');
       placeholder.value = '';
-      placeholder.textContent = choices.length ? 'Choose a CRN' : 'No compatible generated backup';
+      placeholder.textContent = choices.length ? 'Choose a section ID' : 'No compatible generated backup';
       select.append(placeholder);
       for (const choice of choices.filter(choice => !item.backups.includes(choice.crn))) {
         const option = document.createElement('option');
@@ -252,12 +252,13 @@
       }
       const add = makeButton('Add backup', 'add-backup', !choices.some(choice => !item.backups.includes(choice.crn)));
       add.dataset.course = item.courseCode;
-      add.setAttribute('aria-label', `Add backup CRN for ${item.courseCode}`);
+      add.setAttribute('aria-label', `Add backup section ID for ${item.courseCode}`);
       backupLabel.append(select);
       card.append(currentBackups, backupLabel, add);
       root.append(card);
     });
-    document.querySelector('#preflight-order-status').textContent = `${state.order.length} primary CRN(s) saved in your chosen order. Backups are selected separately and are not included in the copy list.`;
+    const sectionLabel = state.order.length === 1 ? 'section ID' : 'section IDs';
+    document.querySelector('#preflight-order-status').textContent = `${state.order.length} primary ${sectionLabel} saved in your chosen order. Backups are selected separately and are not included in the copy list.`;
     updatePasteList();
   }
 
@@ -266,7 +267,7 @@
     textarea.value = state.order.map(item => item.crn).join('\n');
     document.querySelector('#preflight-copy-crns').disabled = !state.order.length || !state.orderReason.trim();
     if (state.order.length && !state.orderReason.trim()) {
-      document.querySelector('#preflight-order-status').textContent = 'Add a reason for this CRN order before copying it.';
+      document.querySelector('#preflight-order-status').textContent = 'Add a reason for this section order before copying it.';
     }
   }
 
@@ -282,7 +283,7 @@
       return [{ courseCode, crn, backups: previous ? previous.backups.filter(value => value !== crn) : [] }];
     });
     if (!rows.length || rows.length !== sections.length) {
-      document.querySelector('#preflight-order-status').textContent = 'This schedule has missing, duplicate, or invalid course/CRN details. No order was saved.';
+      document.querySelector('#preflight-order-status').textContent = 'This schedule has missing, duplicate, or invalid course/section ID details. No order was saved.';
       return;
     }
     state.order = rows;
@@ -298,7 +299,7 @@
     const dateTime = document.querySelector('#preflight-ticket-time').value;
     const timeZone = document.querySelector('#preflight-ticket-zone').value.trim();
     try {
-      if (!timeZone) throw Error('Enter an IANA time zone, such as America/Chicago.');
+      if (!timeZone) throw Error('Enter a time zone, such as America/Chicago.');
       const timestamp = wallTimeToInstant(dateTime, timeZone);
       state.ticket = { dateTime, timeZone, timestamp };
       saveState();
@@ -370,11 +371,11 @@
     try {
       if (!navigator.clipboard?.writeText) throw Error('Clipboard API unavailable');
       await navigator.clipboard.writeText(textarea.value);
-      document.querySelector('#preflight-copy-status').textContent = 'Primary CRNs copied in order. Backups were not copied.';
+      document.querySelector('#preflight-copy-status').textContent = 'Primary section IDs copied in order. Backups were not copied.';
     } catch {
       textarea.focus();
       textarea.select();
-      document.querySelector('#preflight-copy-status').textContent = 'Clipboard copy failed. The primary CRNs are selected in the text box. Use Ctrl+C or your device’s copy command. Backups are not included.';
+      document.querySelector('#preflight-copy-status').textContent = 'Clipboard copy failed. The primary section IDs are selected in the text box. Use Ctrl+C or your device’s copy command. Backups are not included.';
     }
   });
 

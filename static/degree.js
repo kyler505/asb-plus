@@ -9,6 +9,10 @@ const degreeKinds = ['Core / UCC', 'Major', 'Tracked elective', 'Track coverage'
 const planStatuses = ['Planned', 'In progress', 'Completed', 'Transfer credit', 'Do not count'];
 const auditStatuses = ['Needs review', 'Met', 'Not met', 'In progress', 'Unknown'];
 const degreeState = { db: null, data: null, rulePreview: [], planPreview: null, auditPreview: null, pdfjs: null, pickerRun: 0 };
+window.asbGetPlannedDegreeCourses = () => [...new Set((degreeState.data?.plan?.courses || [])
+  .filter(item => item.status === 'Planned')
+  .map(item => String(item.code || '').trim().toUpperCase().replace(/\s+/g, ' '))
+  .filter(code => /^[A-Z]{2,8}\s+[A-Z0-9]+$/.test(code)))];
 
 function newDegreeId() {
   return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
