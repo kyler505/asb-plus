@@ -220,6 +220,9 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/schedule.js", get(schedule_js))
+        .route("/degree.js", get(degree_js))
+        .route("/vendor/pdfjs/pdf.mjs", get(pdfjs_main))
+        .route("/vendor/pdfjs/pdf.worker.mjs", get(pdfjs_worker))
         .route("/api/health", get(health))
         .route("/api/summary", get(summary))
         .route("/api/terms", get(terms))
@@ -249,6 +252,42 @@ async fn index() -> Result<impl IntoResponse, ApiError> {
 }
 async fn schedule_js() -> Result<impl IntoResponse, ApiError> {
     let script = tokio::fs::read("static/schedule.js")
+        .await
+        .map_err(|error| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, error))?;
+    Ok((
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "application/javascript; charset=utf-8",
+        )],
+        script,
+    ))
+}
+async fn degree_js() -> Result<impl IntoResponse, ApiError> {
+    let script = tokio::fs::read("static/degree.js")
+        .await
+        .map_err(|error| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, error))?;
+    Ok((
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "application/javascript; charset=utf-8",
+        )],
+        script,
+    ))
+}
+async fn pdfjs_main() -> Result<impl IntoResponse, ApiError> {
+    let script = tokio::fs::read("static/vendor/pdfjs/pdf.mjs")
+        .await
+        .map_err(|error| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, error))?;
+    Ok((
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "application/javascript; charset=utf-8",
+        )],
+        script,
+    ))
+}
+async fn pdfjs_worker() -> Result<impl IntoResponse, ApiError> {
+    let script = tokio::fs::read("static/vendor/pdfjs/pdf.worker.mjs")
         .await
         .map_err(|error| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, error))?;
     Ok((

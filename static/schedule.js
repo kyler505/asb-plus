@@ -1,4 +1,15 @@
-const scheduleState = { baseline: [], results: [], compared: [], shown: 25, cancelled: false, run: 0 };
+const scheduleSectionChoiceKey = 'asb-degree-section-choices';
+function storedSectionChoices() {
+  try {
+    const value = JSON.parse(localStorage.getItem(scheduleSectionChoiceKey) || '{}');
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return Object.fromEntries(Object.entries(value).flatMap(([code, choice]) => {
+      const crns = [...new Set((Array.isArray(choice) ? choice : choice?.crns || []).map(String).filter(Boolean))];
+      return crns.length ? [[code.trim().toUpperCase().replace(/\s+/g, ' '), { crns }]] : [];
+    }));
+  } catch { return {}; }
+}
+const scheduleState = { baseline: [], results: [], compared: [], shown: 25, cancelled: false, run: 0, requiredSections: storedSectionChoices() };
 const scheduleElement = selector => document.querySelector(selector);
 const scheduleEscape = value => String(value ?? '').replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -6,6 +17,38 @@ const scheduleEscape = value => String(value ?? '').replace(/[&<>"']/g, characte
 const dayOrder = 'MTWRFSU';
 const scheduleStorageKey = 'asb-existing-schedule';
 const preferenceStorageKey = 'asb-schedule-preferences';
+function renderRequiredSections() {
+  const root = scheduleElement('#schedule-degree-choices');
+  const entries = Object.entries(scheduleState.requiredSections).sort(([left], [right]) => left.localeCompare(right));
+  root.innerHTML = entries.length
+    ? `<p class="degree-rule-summary">These CRN choices came from the local requirement picker. Schedule generation will use only the listed CRNs for each course. This selection stays in this browser.</p>${entries.map(([code, choice]) => `<article class="degree-rule-card"><h4>${scheduleEscape(code)}</h4><p>Allowed CRNs: ${choice.crns.map(scheduleEscape).join(', ')}</p>${choice.crns.map(crn => `<button class="button secondary remove-schedule-section" type="button" data-course="${scheduleEscape(code)}" data-crn="${scheduleEscape(crn)}" aria-label="Remove CRN ${scheduleEscape(crn)} from ${scheduleEscape(code)} schedule choices">Remove CRN ${scheduleEscape(crn)}</button>`).join(' ')}</article>`).join('')}`
+    : '<p class="degree-rule-summary">No requirement-specific CRNs selected. Schedule generation can use all public sections for each course.</p>';
+}
+function toggleRequiredSection(code, crn) {
+  const normalizedCode = String(code).trim().toUpperCase().replace(/\s+/g, ' ');
+  const normalizedCrn = String(crn).trim();
+  if (!normalizedCode || !normalizedCrn) return false;
+  const current = scheduleState.requiredSections[normalizedCode]?.crns || [];
+  const included = current.includes(normalizedCrn);
+  const next = included ? current.filter(value => value !== normalizedCrn) : [...current, normalizedCrn];
+  if (next.length) scheduleState.requiredSections[normalizedCode] = { crns: next };
+  else delete scheduleState.requiredSections[normalizedCode];
+  localStorage.setItem(scheduleSectionChoiceKey, JSON.stringify(scheduleState.requiredSections));
+  const input = scheduleElement('#schedule-courses');
+  const codes = [...new Set(input.value.split(/[\n,]/).map(value => value.trim().toUpperCase().replace(/\s+/g, ' ')).filter(Boolean))];
+  if (!codes.includes(normalizedCode)) codes.push(normalizedCode);
+  input.value = codes.join(', ');
+  renderRequiredSections();
+  window.dispatchEvent(new CustomEvent('asb-schedule-section-choice-change', { detail: { code: normalizedCode, crn: normalizedCrn, included: !included } }));
+  scheduleElement('#schedule-status').textContent = `${normalizedCode} CRN ${normalizedCrn} ${included ? 'removed from' : 'added to'} requirement-specific schedule choices.`;
+  return !included;
+}
+window.asbToggleScheduleCrn = toggleRequiredSection;
+window.asbHasScheduleCrn = (code, crn) => Boolean(scheduleState.requiredSections[String(code).trim().toUpperCase().replace(/\s+/g, ' ')]?.crns.includes(String(crn)));
+scheduleElement('#schedule-degree-choices').addEventListener('click', event => {
+  const button = event.target.closest('.remove-schedule-section');
+  if (button) toggleRequiredSection(button.dataset.course, button.dataset.crn);
+});
 
 function parseClock(value) {
   if (value == null) return null;
@@ -346,7 +389,7 @@ function renderScheduleComparison() {
 }
 
 async function generateSchedules() {
-  const codes = [...new Set(scheduleElement('#schedule-courses').value.split(/[\n,]/).map(code => code.trim().toUpperCase()).filter(Boolean))];
+  const codes = [...new Set(scheduleElement('#schedule-courses').value.split(/[\n,]/).map(code => code.trim().toUpperCase().replace(/\s+/g, ' ')).filter(Boolean))];
   if (!codes.length) { scheduleElement('#schedule-status').textContent = 'Enter at least one course code.'; return; }
   const start = parseClock(scheduleElement('#preferred-start').value);
   const end = parseClock(scheduleElement('#preferred-end').value);
@@ -382,9 +425,21 @@ async function generateSchedules() {
       scheduleElement('#schedule-status').textContent = `No sections found for: ${missing.join(', ')}.`;
       return;
     }
+    const staleChoices = courseGroups.flatMap(group => {
+      const crns = scheduleState.requiredSections[group.code]?.crns || [];
+      const stale = crns.filter(crn => !group.sections.some(section => String(section.crn) === crn));
+      return stale.length ? [`${group.code}: ${stale.join(', ')}`] : [];
+    });
+    if (staleChoices.length) {
+      scheduleElement('#schedule-status').textContent = `Selected CRNs are not in the current public section data for: ${staleChoices.join(', ')}. Review the local section choices before generating.`;
+      return;
+    }
     const invalidSections = courseGroups.flatMap(group => group.sections.filter(section => !internallyValid(section)).map(section => `${group.code} ${section.section}`));
     const baseline = scheduleState.baseline;
-    const options = courseGroups.map(group => group.sections.filter(section => internallyValid(section) && !conflictsWith(section, baseline)));
+    const options = courseGroups.map(group => {
+      const requiredCrns = scheduleState.requiredSections[group.code]?.crns;
+      return group.sections.filter(section => (!requiredCrns?.length || requiredCrns.includes(String(section.crn))) && internallyValid(section) && !conflictsWith(section, baseline));
+    });
     const empty = courseGroups.filter((group, index) => !options[index].length).map(group => group.code);
     if (empty.length) {
       const message = baseline.length ? 'No sections fit around the stored schedule for' : 'No usable section options for';
@@ -484,5 +539,6 @@ scheduleElement('#schedule-results').addEventListener('click', event => {
 });
 
 scheduleState.baseline = baselineFromStorage();
+renderRequiredSections();
 renderBaseline();
 loadPreferences();

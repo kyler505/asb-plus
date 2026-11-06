@@ -40,8 +40,10 @@ PDF import requires Poppler's `pdftotext` command. The command also accepts a CS
 - Search current-term professors, inspect historical grade outcomes, correct ambiguous instructor-name matches locally, and compare courses or professors.
 - Generate every conflict-free combination for the chosen courses, compare alternatives, and rank by historical GPA, A/B share, public open flags, and time preferences. Score components, sources, and freshness are shown. Missing grade data is not scored.
 - Import weekly ICS or CSV classes, or paste typed blocks, to fit schedules. Imported meetings and time preferences stay in browser local storage and are not sent to the server.
+- Keep a degree plan, separate audit snapshots, user-entered or imported requirement rules, and program/catalog details in browser IndexedDB. Review each PDF/text/CSV/TSV row before saving; PDF text extraction runs locally, with no OCR.
+- Pick sections for a user-confirmed requirement rule. Course codes and entered section constraints filter public sections; adding a matching CRN limits schedule generation to that choice. Private plan and audit content stays in the browser.
+- No official program rules are preloaded or synced from Howdy. Requirement matching is guidance, not an official degree audit. Review catalog year and sources with an advisor.
 - A section's meeting blocks are checked together. The public data does not reliably link separate lecture and lab CRNs, so the app does not guess those pairs. Confirm them in Howdy.
 - RMP is disabled. Ratings and reviews are not requested or shown. Walking distance is not scored without reliable campus route data.
 - No SSO, Duo, credentials, enrollment submission, or private student data leaves the browser.
-
-Degree planning, the browser extension, seat alerts, and registration preflight remain planned phases. See `docs/SUMMARY.md`.
+- The Schedule Builder extension, visible-page seat alerts, Holds/Action Items, time-ticket countdown, CRN ordering, and backups remain planned. See `docs/SUMMARY.md`.

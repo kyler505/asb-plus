@@ -15,21 +15,28 @@
 - Schedule ranking is explainable: 2 times mean historical GPA, plus mean historical A/B percent divided by 25, plus public open flags, minus closed flags and hours outside the preferred time window. Missing grades are not scored. Public flag source and update time are shown; numeric seats are never inferred.
 - Import weekly ICS/CSV or paste typed schedule blocks to find schedules that fit. Imported meetings and time preferences stay in browser local storage and are not sent to the server. ICS events without weekly recurrence are skipped and reported.
 - Local deployment currently indexes 20,703 sections and 5,007 courses. These counts include the supplied Spring 2027 data and a public Howdy refresh.
-- No SSO, Duo, credentials, private schedule imports, or registration submission.
+- No SSO, Duo, credentials, or registration submission. All imported student data stays in the local browser.
+- Keep program and catalog-year details, manually entered or CSV/TSV-imported requirement rules, a separate degree plan and audit, and local backups in browser IndexedDB.
+- Import plan and audit data from PDF, text, CSV, or TSV. Review each parsed row and confirm it before saving. PDF text extraction runs in the browser with vendored PDF.js; scanned or image-only PDFs are not supported.
+- Map imported audit rows to requirement rules by explicit confirmation. A row counts only when it is marked Met and matches the rule's entered course, section, attribute, and grade conditions. Plan state and audit completion stay separate.
+- Mark a plan approved locally, lock it, and retain an approved snapshot when starting a revision. This is a local note and is not verified by Howdy.
+- Find public sections for a confirmed rule using its course codes and entered section constraints. Add matching CRNs to local schedule choices; stale CRNs are reported, not silently replaced.
+- Plan, audit, requirement, and profile data stay in IndexedDB. The app does not send these records to its server.
 
 ## Stubbed or not included
 
 - RMP ratings and reviews are disabled. No RMP requests or redistribution occur. Permission and approved use remain unresolved.
 - The public section data does not reliably link separate lecture and lab CRNs. ASB+ does not guess the pairings; confirm separate components in Howdy.
 - Schedule ranking does not use walking distance because reliable campus paths are not available.
-- UGDP and degree-audit imports, catalog requirement matching, and requirement-aware course picking.
-- Browser extension, visible-page seat alerts, Holds/Action Items, time-ticket countdown, CRN ordering, and backups.
+- Built-in catalog program requirements, automatic Howdy UGDP/audit sync, and official audit or eligibility checks. Users must enter or import rules for their program and catalog year.
+- OCR for scanned PDFs. Plan and audit PDF text extraction runs locally in the browser, but requires extractable text.
+- The Schedule Builder extension, visible-page seat alerts, Holds/Action Items, time-ticket countdown, CRN ordering, and backups.
 - Public Howdy data does not provide numeric seat counts. Confirm availability, eligibility, and registration in Howdy.
 - The supplied `data/s27.json` and local SQLite database are not committed. Grade imports are local and must be repeated on another installation.
 
 ## Run
 
-Requires Rust, Cargo, the supplied `data/s27.json`, and Poppler only for PDF imports:
+Requires Rust, Cargo, and the supplied `data/s27.json`. Poppler is optional; it is needed only for command-line Registrar PDF imports:
 
 ```sh
 cargo run --release
@@ -47,7 +54,6 @@ The importer also accepts CSV. Use `cargo run --release -- refresh-howdy` to ref
 
 ## Next steps
 
-1. Add browser-local degree-plan and audit imports with requirement-aware course picking.
-2. Add the minimal-permission Schedule Builder extension and visible-page seat alerts.
-3. Add local Holds/Action Items, time-ticket countdown, CRN order, and backups.
-4. Resolve permission and approved use before considering RMP.
+1. Add the minimal-permission Schedule Builder extension and visible-page seat alerts.
+2. Add local Holds/Action Items, time-ticket countdown, CRN order, and backups.
+3. Resolve permission and approved use before considering RMP.

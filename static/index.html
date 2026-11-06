@@ -11,6 +11,7 @@
 .navtabs{display:flex;gap:8px;flex-wrap:wrap;margin:-7px 0 24px}.navtabs a{border:1px solid var(--line);border-radius:6px;background:var(--surface);padding:8px 13px;text-decoration:none;font-weight:700}.tool-panel{margin-top:28px}.tool-panel>h2{margin-bottom:6px}.tool-panel .intro{max-width:75ch;color:var(--muted);margin:0 0 16px}.search-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.search-row .field{flex:1 1 260px}.result-list{display:grid;gap:9px;margin-top:16px}.professor-card{display:grid;grid-template-columns:minmax(200px,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:7px;padding:13px}.professor-card h3{margin:0;font-size:16px}.professor-card p{margin:3px 0 0;font-size:13px;color:var(--muted)}.card-actions{display:flex;gap:12px;align-items:center}.profile-box,.compare-box{margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}.profile-box h3,.compare-box h3{margin:0 0 7px}.inline-fields{display:flex;align-items:end;gap:9px;flex-wrap:wrap;margin:12px 0}.inline-fields .field{flex:1 1 220px}.warning-note{border-inline-start:4px solid var(--amber);padding:9px 12px;background:var(--soft);font-size:13px}.compare-table{margin-top:14px}.compare-table th:first-child{min-width:140px}.compare-table td{vertical-align:top}.chosen-list{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.chosen-item{display:flex;gap:8px;align-items:center;border:1px solid var(--line);background:var(--surface);padding:5px 9px;border-radius:6px;font-size:13px}.chosen-item button{min-height:30px}.match-label{font-size:12px;font-weight:700;color:var(--muted)}.table-status{margin-top:10px}@media(max-width:560px){.professor-card{grid-template-columns:1fr}.card-actions{flex-wrap:wrap}.search-row>.button{width:100%}}
 @media(max-width:560px){.actions{grid-column:auto;flex-direction:column;align-items:flex-start;gap:6px}}
 .field textarea{width:100%;min-height:90px;border:1px solid #aeb7ad;border-radius:6px;padding:9px 11px;background:var(--surface);color:var(--ink);resize:vertical}.schedule-note{margin:10px 0;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--soft);font-size:13px}.schedule-option{margin-top:12px;padding:15px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}.schedule-option-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.schedule-option h3{font-size:17px;margin:0}.schedule-option .grade-table-wrap{margin-top:10px}
+ .degree-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.degree-subpanel{margin-top:18px;padding:15px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}.degree-subpanel h3{margin:0 0 8px}.degree-subpanel .subtext{max-width:80ch}.degree-rule-card,.degree-import-row,.degree-section-card{margin-top:10px;padding:13px;border:1px solid var(--line);border-radius:7px;background:var(--surface)}.degree-rule-card h4,.degree-import-row h4{margin:0 0 5px}.degree-import-row{display:grid;gap:8px}.degree-import-row label.check{align-items:flex-start}.degree-rule-summary{color:var(--muted);font-size:13px}.degree-badge{display:inline-block;padding:2px 7px;border:1px solid var(--line);border-radius:999px;font-size:12px;font-weight:700}.degree-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.degree-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.degree-danger{color:var(--danger)}@media(max-width:760px){.degree-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.degree-grid{grid-template-columns:1fr}.degree-subpanel{padding:12px}}
 </style>
 </head>
 <body>
@@ -18,7 +19,7 @@
 <div class="wrap">
 <header class="topbar"><div class="brand">ASB<span>+</span></div><div class="campus">TEXAS A&amp;M · COLLEGE STATION</div></header>
 <section class="hero"><div class="eyebrow">One place to plan your courses</div><h1>Find the right sections.</h1><p class="subtitle">Search public section data, compare meeting times, and review historical grades. Seat counts may not be public. Confirm availability and eligibility in Howdy.</p></section>
-<nav class="navtabs" aria-label="Main screens"><a href="#main">Course finder</a><a href="#professor-tools">Professor insights</a><a href="#schedule-tools">Schedules and fit</a><a href="#compare-tools">Compare</a></nav>
+<nav class="navtabs" aria-label="Main screens"><a href="#main">Course finder</a><a href="#professor-tools">Professor insights</a><a href="#schedule-tools">Schedules and fit</a><a href="#degree-tools">Degree planner</a><a href="#compare-tools">Compare</a></nav>
 <main id="main" class="main">
 <section class="panel" aria-label="Course search">
 <form id="filters" class="filters">
@@ -73,11 +74,85 @@
 <button class="button" id="generate-schedules" type="button">Generate schedules</button>
 <button class="button secondary" id="cancel-schedules" type="button" hidden>Cancel generation</button>
 </div>
+<section class="degree-subpanel" aria-labelledby="schedule-degree-heading">
+<h3 id="schedule-degree-heading">Requirement-specific CRN choices</h3>
+<div id="schedule-degree-choices"></div>
+</section>
 <div id="schedule-status" class="status" role="status" aria-live="polite"></div>
 <div id="schedule-result-count" class="count" aria-live="polite"></div>
 <div id="schedule-results" aria-busy="false"></div>
 <button class="button secondary" id="schedule-more" type="button" hidden>Load more schedules</button>
 <div id="schedule-comparison" class="profile-box"></div>
+</section>
+<section id="degree-tools" class="panel tool-panel" aria-labelledby="degree-heading">
+<h2 id="degree-heading">Degree planner and audit</h2>
+<p class="intro">Keep your plan, audit snapshot, and course-requirement rules together. Import stays in this browser and never goes to the app server.</p>
+<p class="warning-note"><strong>Planning aid, not an official audit.</strong> Catalog rules are student-entered or imported and must be checked against your catalog and advisor. No Howdy login, credentials, or private-page access is used.</p>
+<div id="degree-status" class="status" role="status" aria-live="polite">Opening private local storage...</div>
+<section class="degree-subpanel" aria-labelledby="degree-profile-heading">
+<h3 id="degree-profile-heading">Program and catalog</h3>
+<div class="degree-grid">
+<div class="field"><label for="degree-program">Program or major</label><input id="degree-program" type="text" autocomplete="off"></div>
+<div class="field"><label for="degree-catalog-year">Catalog year</label><input id="degree-catalog-year" type="text" inputmode="numeric" placeholder="For example, 2026-2027"></div>
+<div class="field"><label for="degree-catalog-source">Catalog or advising source URL</label><input id="degree-catalog-source" type="url" placeholder="https://catalog.tamu.edu/..."></div>
+</div>
+<div class="degree-actions"><button class="button" id="save-degree-profile" type="button">Save program details</button><button class="button secondary" id="export-degree-data" type="button">Export local backup</button><label class="button secondary" for="restore-degree-data">Restore local backup</label><input id="restore-degree-data" type="file" accept="application/json,.json" hidden></div>
+<div id="degree-profile-status" class="status" role="status" aria-live="polite"></div>
+</section>
+<section class="degree-subpanel" aria-labelledby="degree-rules-heading">
+<h3 id="degree-rules-heading">Requirement buckets and rules</h3>
+<p class="subtext">Enter rules from the public catalog or advising source. Rules are versioned by catalog year and source. The app does not claim that an imported or entered rule is official.</p>
+<div class="degree-grid">
+<div class="field"><label for="degree-rule-name">Bucket or rule name</label><input id="degree-rule-name" type="text" placeholder="Required course group"></div>
+<div class="field"><label for="degree-rule-kind">Requirement type</label><select id="degree-rule-kind"><option>Core / UCC</option><option>Major</option><option>Tracked elective</option><option>Track coverage</option><option>Writing / UCRT</option><option>High-impact</option><option>Emphasis / minor</option><option>Prerequisite</option><option>Minimum grade</option><option>Other</option></select></div>
+<div class="field"><label for="degree-rule-codes">Course codes</label><input id="degree-rule-codes" type="text" placeholder="SUBJ 101, SUBJ 202"></div>
+<div class="field"><label for="degree-rule-section-range">Required section numbers (optional)</label><input id="degree-rule-section-range" type="text" placeholder="501-505, 930-939"></div>
+<div class="field"><label for="degree-rule-attribute">Required section attribute (optional)</label><input id="degree-rule-attribute" type="text" placeholder="Exact text shown in section attributes"></div>
+<div class="field"><label for="degree-rule-track">Coverage group or track (optional)</label><input id="degree-rule-track" type="text"></div>
+<div class="field"><label for="degree-rule-target">Required distinct tracks in group</label><input id="degree-rule-target" type="number" min="1" max="50" value="1"></div>
+<div class="field"><label for="degree-rule-min-grade">Minimum grade (optional)</label><select id="degree-rule-min-grade"><option value="">Not specified</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
+<div class="field"><label for="degree-rule-prerequisite">Prerequisite or advisor note (optional)</label><input id="degree-rule-prerequisite" type="text"></div>
+<div class="field"><label for="degree-rule-source">Source URL for this rule</label><input id="degree-rule-source" type="url"></div>
+</div>
+<div class="degree-actions"><button class="button" id="add-degree-rule" type="button">Add confirmed rule</button></div>
+<div class="degree-subpanel">
+<h4>Import a rule sheet for review</h4>
+<div class="field"><label for="degree-rules-file">Rule sheet (CSV or TSV)</label><input id="degree-rules-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values"></div>
+<div class="field"><label for="degree-rules-text">Or paste rule rows</label><textarea id="degree-rules-text" rows="4" placeholder="name,kind,courses,section_range,required_attribute,track,min_grade,prerequisites,source"></textarea></div>
+<div class="degree-actions"><button class="button secondary" id="preview-degree-rules" type="button">Preview rules</button><button class="button" id="confirm-degree-rules" type="button" hidden>Save selected rules</button></div>
+<div id="degree-rules-preview"></div>
+</div>
+<div id="degree-rules"></div>
+</section>
+<div class="degree-grid">
+<section class="degree-subpanel" aria-labelledby="degree-plan-heading">
+<h3 id="degree-plan-heading">Student degree plan</h3>
+<p class="subtext">Import a Howdy print/PDF, text, CSV, or TSV. PDF text is extracted in this browser. Review each row before saving.</p>
+<div class="field"><label for="degree-plan-file">Plan file</label><input id="degree-plan-file" type="file" accept=".pdf,.txt,.csv,.tsv,application/pdf,text/plain,text/csv"></div>
+<div class="field"><label for="degree-plan-text">Or paste plan text</label><textarea id="degree-plan-text" rows="5" placeholder="Paste text copied from the official plan or an exported sheet"></textarea></div>
+<div class="degree-actions"><button class="button secondary" id="preview-degree-plan" type="button">Preview plan import</button><button class="button" id="confirm-degree-plan" type="button" hidden>Save confirmed plan rows</button></div>
+<div id="degree-plan-preview"></div>
+<div id="degree-plan-controls"></div>
+<div id="degree-plan-courses"></div>
+</section>
+<section class="degree-subpanel" aria-labelledby="degree-audit-heading">
+<h3 id="degree-audit-heading">Degree audit snapshot</h3>
+<p class="subtext">The audit is separate from the plan. Import an unlocked PDF, text, CSV, or TSV; confirm each course or requirement result. Holds and Action Items are separate.</p>
+<div class="field"><label for="degree-audit-file">Audit file</label><input id="degree-audit-file" type="file" accept=".pdf,.txt,.csv,.tsv,application/pdf,text/plain,text/csv"></div>
+<div class="field"><label for="degree-audit-text">Or paste audit text</label><textarea id="degree-audit-text" rows="5" placeholder="Paste selected audit text or an exported sheet"></textarea></div>
+<div class="degree-actions"><button class="button secondary" id="preview-degree-audit" type="button">Preview audit import</button><button class="button" id="confirm-degree-audit" type="button" hidden>Save confirmed audit rows</button></div>
+<div id="degree-audit-preview"></div>
+<div id="degree-audit-state"></div>
+</section>
+</div>
+<section class="degree-subpanel" aria-labelledby="degree-picker-heading">
+<h3 id="degree-picker-heading">Pick sections for a requirement</h3>
+<p class="subtext">Search public sections for a selected rule. A match means the course code and any entered section constraints match; it is not an official degree-audit result.</p>
+<div class="search-row"><div class="field"><label for="degree-picker-rule">Requirement rule</label><select id="degree-picker-rule"><option value="">Add a rule first</option></select></div><button class="button" id="find-degree-sections" type="button">Find matching sections</button></div>
+<div id="degree-picker-status" class="status" role="status" aria-live="polite"></div>
+<div id="degree-picker-results" class="result-list"></div>
+</section>
+<div class="degree-actions"><button class="button secondary degree-danger" id="delete-degree-data" type="button">Delete all degree data from this browser</button></div>
 </section>
 <section id="compare-tools" class="panel tool-panel" aria-labelledby="compare-heading">
 <h2 id="compare-heading">Compare</h2>
@@ -101,6 +176,7 @@
 </div>
 <dialog id="grade-dialog" aria-labelledby="grade-title"><div class="dialog-head"><h2 id="grade-title">Historical grade distributions</h2><button class="iconbutton" type="button" id="close-dialog">Close</button></div><div class="dialog-body"><p class="subtext" id="grade-course"></p><div id="grade-status" class="status" role="status" aria-live="polite"></div><div id="grade-content"></div></div></dialog>
 <script src="/schedule.js"></script>
+<script src="/degree.js"></script>
 <script>
 const $ = selector => document.querySelector(selector);
 const state = { offset: 0, limit: 100, request: 0, gradeRequest: 0 };
