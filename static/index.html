@@ -1,28 +1,292 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f5f3ed">
-<title>ASB+ | Spring 2027 planner</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f5f3ed">
+<title>ASB+ | Course finder</title>
 <style>
-:root{color-scheme:light;--paper:#f5f3ed;--ink:#202522;--muted:#6a716c;--line:#d9ddd5;--green:#164d39;--lime:#d8f27a;--white:#fff;--orange:#b45b35}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}a{color:inherit}button,select,input{font:inherit}button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #bc651f;outline-offset:3px}.wrap{max-width:1280px;margin:auto;padding:0 32px}.top{height:82px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.brand{font-weight:850;letter-spacing:-.07em;font-size:24px}.brand span{color:var(--green)}.term{font-size:13px;color:var(--muted)}header.hero{padding:48px 0 28px;display:flex;justify-content:space-between;align-items:end;gap:20px}.eyebrow{text-transform:uppercase;color:var(--green);font-weight:750;font-size:11px;letter-spacing:.14em}h1{font-size:clamp(34px,5vw,56px);line-height:1.02;letter-spacing:-.055em;margin:10px 0 12px}.subtitle{color:var(--muted);margin:0}.datebox{background:var(--green);color:white;padding:18px 22px;border-radius:10px;min-width:210px}.datebox small{color:#c7d8cd;text-transform:uppercase;font-size:10px;letter-spacing:.12em}.datebox strong{display:block;font-size:18px;margin-top:3px}.tabs{display:flex;border-bottom:1px solid var(--line);gap:7px;overflow:auto}.tabs button{border:0;background:transparent;padding:13px 17px;color:var(--muted);font-weight:650;white-space:nowrap;cursor:pointer;border-bottom:2px solid transparent}.tabs button[aria-selected=true]{color:var(--green);border-color:var(--green)}main{padding:30px 0 70px}.heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;gap:15px}h2{font-size:25px;letter-spacing:-.04em;margin:0}h3{font-size:16px;margin:0}.muted{color:var(--muted)}.button{background:var(--green);color:white;border:0;border-radius:6px;padding:11px 15px;font-weight:700;cursor:pointer}.button.secondary{background:white;color:var(--green);border:1px solid var(--line)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.course{background:white;border:1px solid var(--line);border-radius:9px;padding:18px}.coursehead{display:flex;justify-content:space-between;gap:10px}.coursecode{color:var(--green);font-weight:800;font-size:12px;letter-spacing:.08em}.course h3{margin:4px 0 14px}.cardline{display:flex;justify-content:space-between;border-top:1px solid #edf0eb;padding:10px 0;gap:8px;font-size:13px}.pill{border-radius:99px;background:#eff4e9;color:#31583c;padding:3px 9px;font-size:11px;font-weight:700;white-space:nowrap}.pickrow{display:flex;gap:9px;align-items:center;margin-top:12px;color:var(--muted);font-size:13px}.pickrow select{padding:8px;max-width:100%;border:1px solid var(--line);border-radius:5px;background:white;color:var(--ink)}.notice{background:#fff9e9;border-left:3px solid #cfaa45;padding:12px 15px;color:#61532d;border-radius:0 6px 6px 0;font-size:13px;margin:18px 0}.toolbar{display:flex;gap:15px;align-items:center;flex-wrap:wrap;margin-bottom:18px}.check{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:13px}.tablewrap{overflow:auto;background:white;border:1px solid var(--line);border-radius:8px}table{border-collapse:collapse;width:100%;min-width:850px;text-align:left}th,td{padding:12px 13px;border-bottom:1px solid #edf0eb;font-size:13px;vertical-align:top}th{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);background:#fafbf8}td strong{color:var(--green)}.schedulelist{display:grid;gap:12px}.schedule{background:white;border:1px solid var(--line);border-radius:8px;padding:17px}.week{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:12px}.day{min-height:80px;background:#f6f7f3;border-radius:5px;padding:8px;font-size:11px}.event{background:#e4efdb;border-left:3px solid var(--green);padding:6px;margin-top:5px;border-radius:3px}.empty{padding:22px;color:var(--muted);background:white;border:1px solid var(--line);border-radius:8px}.ticketgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.panel{background:white;border:1px solid var(--line);border-radius:8px;padding:19px}.task{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #edf0eb;font-size:14px}.task input{width:18px;height:18px;accent-color:var(--green)}.crns{font:600 15px/2 ui-monospace,monospace;white-space:pre-wrap;background:#f6f7f3;padding:12px;border-radius:5px}.urgent{color:var(--orange)}footer{border-top:1px solid var(--line);padding:18px 0 28px;color:var(--muted);font-size:12px}.hidden{display:none!important}@media(max-width:720px){.wrap{padding:0 17px}.top{height:65px}header.hero{padding:34px 0 22px;align-items:start;flex-direction:column}.datebox{width:100%}.grid,.ticketgrid{grid-template-columns:1fr}.tabs{margin:0 -17px;padding:0 17px}.heading{align-items:start;flex-direction:column}.week{grid-template-columns:repeat(2,1fr)}}
+:root{color-scheme:light;--paper:#f5f3ed;--surface:#fff;--ink:#202522;--muted:#69716b;--line:#d7dcd3;--maroon:#500000;--maroon-2:#741d26;--soft:#f1eee8;--green:#286248;--amber:#805c18;--danger:#943e32;--focus:#b46a20}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,input,select{font:inherit}button,a,select,input{min-height:40px}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:3px}a{color:var(--maroon)}.skip{position:absolute;inset-block-start:-100px;inset-inline-start:16px;background:var(--surface);padding:10px;z-index:5}.skip:focus{inset-block-start:12px}.wrap{max-width:1260px;margin:auto;padding:0 32px}.topbar{height:74px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.brand{font-weight:850;letter-spacing:-.06em;font-size:24px}.brand span{color:var(--maroon)}.campus{font-size:12px;letter-spacing:.1em;color:var(--muted);font-weight:700}.hero{padding:38px 0 26px}.eyebrow{text-transform:uppercase;letter-spacing:.13em;color:var(--maroon);font-weight:750;font-size:11px}h1{font-size:clamp(32px,5vw,48px);letter-spacing:-.05em;line-height:1.06;margin:8px 0}.subtitle{color:var(--muted);margin:0;max-width:65ch}.main{padding-bottom:64px}.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px}.filters{display:grid;grid-template-columns:minmax(220px,1fr) minmax(150px,200px) minmax(160px,220px) auto;gap:12px;align-items:end}.field{display:grid;gap:5px}.field label,.filter-title{font-size:12px;color:var(--muted);font-weight:700}.field input,.field select{width:100%;border:1px solid #aeb7ad;border-radius:6px;padding:9px 11px;background:var(--surface);color:var(--ink)}.button{background:var(--maroon);color:#fff;border:1px solid var(--maroon);border-radius:6px;padding:8px 15px;font-weight:700;cursor:pointer}.button.secondary{background:var(--surface);color:var(--maroon)}.button:disabled{opacity:.55;cursor:wait}.toolrow{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:13px}.check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}.check input{width:18px;height:18px;accent-color:var(--maroon)}.source{font-size:12px;color:var(--muted)}.source strong{color:var(--ink)}.results-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:26px 0 12px}h2{font-size:21px;letter-spacing:-.03em;margin:0}.count{font-size:13px;color:var(--muted)}.cards{display:grid;gap:10px}.section{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;display:grid;grid-template-columns:minmax(180px,1.1fr) minmax(180px,1.2fr) minmax(160px,1fr) minmax(145px,.8fr);gap:16px;align-items:start}.course{font-weight:800;color:var(--maroon)}.section-title{font-weight:650;margin-top:3px}.subtext{font-size:13px;color:var(--muted);margin-top:3px}.label{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:750}.availability{font-size:13px;font-weight:750}.availability.open{color:var(--green)}.availability.closed{color:var(--danger)}.availability.unknown{color:var(--amber)}.mini{font-size:12px;color:var(--muted)}.linkbutton{border:0;background:transparent;color:var(--maroon);font-weight:750;text-decoration:underline;text-underline-offset:3px;padding:4px 0;cursor:pointer}.actions{display:flex;flex-direction:column;align-items:flex-start}.pages{display:flex;justify-content:space-between;align-items:center;margin-top:16px}.empty,.error{padding:20px;background:var(--surface);border:1px solid var(--line);border-radius:8px}.error{border-inline-start:4px solid var(--danger)}.empty p,.error p{margin:4px 0}.hidden{display:none!important}dialog{width:min(760px,calc(100% - 24px));max-height:85vh;border:1px solid var(--line);border-radius:10px;padding:0;color:var(--ink);box-shadow:0 18px 50px #0003}dialog::backdrop{background:#17191880}.dialog-head{display:flex;justify-content:space-between;align-items:center;padding:17px 20px;border-bottom:1px solid var(--line)}.dialog-body{padding:20px;overflow:auto}.iconbutton{border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--ink);padding:6px 10px;cursor:pointer}.grade-table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:540px;text-align:left}th,td{padding:9px;border-bottom:1px solid var(--line);font-size:13px}th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}footer{border-top:1px solid var(--line);padding:17px 0 24px;color:var(--muted);font-size:12px}.status{min-height:1.5em;color:var(--muted);font-size:13px}@media(max-width:820px){.filters{grid-template-columns:1fr 1fr}.section{grid-template-columns:1fr 1fr}.actions{grid-column:1/-1;flex-direction:row;gap:16px;align-items:center}}@media(max-width:560px){.wrap{padding-inline:16px}.topbar{height:62px}.campus{font-size:10px}.hero{padding:29px 0 21px}.panel{padding:15px}.filters{grid-template-columns:1fr}.toolrow,.results-head{align-items:flex-start;flex-direction:column}.section{grid-template-columns:1fr;gap:10px}.actions{grid-column:auto}.pages{gap:10px}.button{min-height:44px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important}}
+.filters{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:820px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.filters{grid-template-columns:1fr}}
 </style>
 </head>
-<body><div class="wrap"><div class="top"><div class="brand">ASB<span>+</span></div><div class="term">TEXAS A&amp;M · COLLEGE STATION</div></div>
-<header class="hero"><div><div class="eyebrow">Your registration workspace</div><h1>Spring 2027, in hand.</h1><p class="subtitle">A clear plan for registration day. Your choices stay yours.</p></div><div class="datebox"><small>Registration window begins</small><strong>Mon, Nov 9 · 9:45 AM CT</strong></div></header>
-<nav class="tabs" aria-label="Planner screens"><button data-view="plan" aria-selected="true">01 &nbsp; Plan</button><button data-view="sections" aria-selected="false">02 &nbsp; Sections</button><button data-view="schedules" aria-selected="false">03 &nbsp; Schedules</button><button data-view="ticket" aria-selected="false">04 &nbsp; Ticket day</button></nav>
-<main id="main" tabindex="-1"><p>Loading course data…</p></main><footer>Read-only planning tool · Seat counts may be unavailable or coarse. Confirm current availability and eligibility in Howdy. This tool never registers you.</footer></div>
+<body>
+<a class="skip" href="#main">Skip to course results</a>
+<div class="wrap">
+<header class="topbar"><div class="brand">ASB<span>+</span></div><div class="campus">TEXAS A&amp;M · COLLEGE STATION</div></header>
+<section class="hero"><div class="eyebrow">One place to plan your courses</div><h1>Find the right sections.</h1><p class="subtitle">Search public section data, compare meeting times, and review historical grades. Seat counts may not be public. Confirm availability and eligibility in Howdy.</p></section>
+<main id="main" class="main">
+<section class="panel" aria-label="Course search">
+<form id="filters" class="filters">
+<div class="field"><label for="query">Course, instructor, or CRN</label><input id="query" name="q" type="search" autocomplete="off" placeholder="Try CSCE 482 or a name"></div>
+<div class="field"><label for="term">Term</label><select id="term"><option value="202711">Spring 2027</option></select></div>
+<div class="field"><label for="subject">Subject</label><select id="subject"><option value="">All subjects</option></select></div>
+<div class="field"><label for="instructor">Instructor</label><input id="instructor" type="search" autocomplete="off" placeholder="Name contains"></div>
+<div class="field"><label for="day">Meeting day</label><select id="day"><option value="">Any day</option><option value="M">Monday</option><option value="T">Tuesday</option><option value="W">Wednesday</option><option value="R">Thursday</option><option value="F">Friday</option><option value="S">Saturday</option><option value="U">Sunday</option></select></div>
+<div class="field"><label for="starts-after">Starts no earlier than</label><input id="starts-after" type="time"></div>
+<div class="field"><label for="ends-before">Ends by</label><input id="ends-before" type="time"></div>
+<div class="field"><label for="attribute">Section attribute</label><input id="attribute" type="search" placeholder="Online, honors..."></div>
+<div class="field"><label for="min-gpa">Minimum course mean GPA</label><input id="min-gpa" type="number" min="0" max="4" step="0.01" inputmode="decimal"></div>
+<div class="field"><label for="max-gpa">Difficulty: max course mean GPA</label><input id="max-gpa" type="number" min="0" max="4" step="0.01" inputmode="decimal" title="Lower mean GPA can signal higher difficulty, but this is only a proxy."></div>
+<div class="field"><label for="min-ab-rate">Minimum A/B rate (%)</label><input id="min-ab-rate" type="number" min="0" max="100" step="1" inputmode="numeric" title="A/B share of reported A-F counts; Q is excluded."></div>
+<button class="button" type="submit">Search sections</button>
+</form>
+<div class="toolrow"><label class="check"><input type="checkbox" id="campus" checked> College Station only</label><div class="source" id="source">Reading local course data…</div></div>
+<div class="toolrow"><span class="status" id="feedback" role="status" aria-live="polite"></span><button class="button secondary" id="refresh" type="button">Refresh public sections</button></div>
+</section>
+<div class="results-head"><h2>Sections</h2><span class="count" id="count" aria-live="polite"></span></div>
+<div id="error" class="error hidden" role="alert"></div>
+<div id="results" class="cards" aria-busy="true"></div>
+<div class="pages"><span class="count" id="page-label"></span><button class="button secondary" id="more" type="button">Load more sections</button></div>
+<footer>Public section data only · Seat counts are shown only when reported · Registration remains in Howdy</footer>
+</main>
+</div>
+<dialog id="grade-dialog" aria-labelledby="grade-title"><div class="dialog-head"><h2 id="grade-title">Historical grade distributions</h2><button class="iconbutton" type="button" id="close-dialog">Close</button></div><div class="dialog-body"><p class="subtext" id="grade-course"></p><div id="grade-status" class="status" role="status" aria-live="polite"></div><div id="grade-content"></div></div></dialog>
 <script>
-const main=document.querySelector('#main');let data, picks={};const days=[['MON','M'],['TUE','T'],['WED','W'],['THU','R'],['FRI','F']];
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function sectionLabel(s){return `${s.course} · ${s.section} · CRN ${s.crn}`}
-function timeText(t){return t.days?`${t.days} ${t.begin||''}–${t.end||''} · ${t.room||t.type||''}`:`${t.type||'Time TBA'} · ${t.room||'Location TBA'}`}
-function selected(group){return group.sections.find(s=>s.crn===picks[group.course])||group.sections.find(s=>s.preferred)||group.sections[0]}
-function render(){const view=document.querySelector('[aria-selected=true]').dataset.view;if(!data){main.innerHTML='<p>Loading…</p>';return}if(view==='plan')plan();if(view==='sections')sections();if(view==='schedules')schedules();if(view==='ticket')ticket()}
-function plan(){main.innerHTML=`<div class="heading"><div><div class="eyebrow">Six courses · one term</div><h2>Your plan</h2></div><span class="pill">${data.groups.reduce((n,g)=>n+(selected(g)?Number(selected(g).hours)||0:0),0)} planned credit hours</span></div><div class="grid">${data.groups.map(g=>{const s=selected(g);return `<article class="course"><div class="coursehead"><span class="coursecode">${esc(g.course)}</span><span class="pill">${g.sections.length} sections</span></div><h3>${esc(s?.title||'Course options')}</h3><div class="cardline"><span>Selected section</span><strong>${esc(s?`#${s.section} · CRN ${s.crn}`:'None available')}</strong></div><div class="cardline"><span>Instructor</span><span>${esc(s?.instructors.join(', ')||'Not listed')}</span></div><label class="pickrow">Choose section <select data-course="${esc(g.course)}">${g.sections.map(x=>`<option value="${esc(x.crn)}" ${s?.crn===x.crn?'selected':''}>${esc(sectionLabel(x))}${x.preferred?' · preferred':''}</option>`).join('')}</select></label></article>`}).join('')}</div><div class="notice">Public seat data is coarse and often unavailable. This planner does not predict eligibility or submit registration.</div>`;main.querySelectorAll('select').forEach(e=>e.onchange=()=>{picks[e.dataset.course]=e.value;render()})}
-function sections(){main.innerHTML=`<div class="heading"><div><div class="eyebrow">Public Howdy snapshot · ${esc(data.term)}</div><h2>Section finder</h2></div></div><div class="toolbar"><label class="check"><input type="checkbox" id="csfilter" checked> College Station only</label><label class="check"><input type="search" id="filter" placeholder="Filter course, instructor, or CRN" aria-label="Filter sections"></label></div><div class="tablewrap"><table><thead><tr><th>Course / section</th><th>CRN</th><th>Instructor</th><th>Days, times &amp; room</th><th>Seats</th><th>Eligibility</th></tr></thead><tbody id="rows"></tbody></table></div><div class="notice">Eligibility is not verified from this public snapshot. Check restrictions and prerequisites in Howdy.</div>`;const update=()=>{let list=data.groups.flatMap(g=>g.sections).filter(s=>(!document.querySelector('#csfilter').checked||/college station|\bCS\b/i.test(s.site))&&(`${s.course} ${s.title} ${s.crn} ${s.instructors.join(' ')}`).toLowerCase().includes(document.querySelector('#filter').value.toLowerCase()));document.querySelector('#rows').innerHTML=list.map(s=>`<tr><td><strong>${esc(s.course)}</strong><br>Section ${esc(s.section)} · ${esc(s.title)}</td><td>${esc(s.crn)}</td><td>${esc(s.instructors.join(', '))}</td><td>${s.times.map(t=>esc(timeText(t))).join('<br>')}</td><td>${esc(s.seats)} <span class="muted">(coarse)</span></td><td>Check in Howdy</td></tr>`).join('')||'<tr><td colspan="6">No sections match these filters.</td></tr>'};document.querySelector('#csfilter').onchange=update;document.querySelector('#filter').oninput=update;update()}
-function minutes(t){if(!t)return null;const m=t.match(/(\d+):(\d+)\s*(AM|PM)/i);if(!m)return null;let h=+m[1]%12;if(m[3].toUpperCase()==='PM')h+=12;return h*60+(+m[2])}
-function scheduleRank(combo){return combo.reduce((score,s)=>score+(s.times.some(t=>minutes(t.begin)!=null&&minutes(t.begin)<540)?100:0)+(s.seats!=='NA'&&Number(s.seats)>0?-10:0),0)}
-function schedules(){const combos=data.groups.map(g=>g.sections.filter(s=>s.preferred||s.crn===picks[g.course])).filter(g=>g.length).reduce((a,b)=>a.flatMap(x=>b.map(y=>[...x,y])),[[]]);const valid=combos.filter(combo=>{const ev=combo.flatMap(s=>s.times.filter(t=>t.days&&minutes(t.begin)!=null&&minutes(t.end)!=null).flatMap(t=>days.filter(([,c])=>t.days.includes(c)).map(([d])=>({d,start:minutes(t.begin),end:minutes(t.end)}))));return !ev.some((a,i)=>ev.slice(i+1).some(b=>a.d===b.d&&a.start<b.end&&b.start<a.end))}).sort((a,b)=>scheduleRank(a)-scheduleRank(b));main.innerHTML=`<div class="heading"><div><div class="eyebrow">Based on preferred picks</div><h2>Conflict-free schedules</h2></div><span class="pill">${valid.length} combinations</span></div>${valid.length?`<div class="schedulelist">${valid.slice(0,20).map((c,i)=>`<article class="schedule"><h3>Schedule ${i+1}</h3><div class="week">${days.map(([d])=>`<div class="day"><strong>${d}</strong>${c.flatMap(s=>s.times.filter(t=>t.days?.includes(({MON:'M',TUE:'T',WED:'W',THU:'R',FRI:'F'})[d])).map(t=>`<div class="event">${esc(s.course)}<br>${esc(t.begin||'')}–${esc(t.end||'')}<br>${esc(t.room)}</div>`)).join('')}</div>`).join('')}</div></article>`).join('')}</div>`:'<div class="empty">No conflict-free combinations found for the currently preferred sections. Change picks on the Plan screen.</div>'}<p class="muted">Schedules rank plans without 8 AM starts first, then favor reported positive public seats. TBA meetings are not used for conflict detection. The 482 lecture and lab blocks are checked separately.</p>`}
-function ticket(){const chosen=data.groups.map(selected).filter(Boolean);const crns=chosen.sort((a,b)=>{const scarce=s=>s.course==='CSCE 482'?0:s.seats!=='NA'?1:2;return scarce(a)-scarce(b)}).map(s=>s.crn);main.innerHTML=`<div class="heading"><div><div class="eyebrow">Window · Nov 9, 9:45 AM to Nov 11, 9:45 AM CT</div><h2>Registration day</h2></div><span class="pill urgent">Check Howdy for live status</span></div><div class="ticketgrid"><section class="panel"><h3>Preflight checklist</h3><p class="muted">Open Howdy to confirm each item before your window.</p>${data.checklist.map((x,i)=>`<label class="task"><input type="checkbox" data-task="${i}"><span>${esc(x)} · <a href="https://howdy.tamu.edu/" target="_blank" rel="noreferrer">Howdy</a></span></label>`).join('')}</section><section class="panel"><h3>CRNs in planned order</h3><p class="muted">Copy these into Howdy yourself. Backups for CSCE 482 are below.</p><div class="crns">${esc(crns.join('\n'))}</div><button class="button" id="copy">Copy CRNs</button> <span class="muted" id="copystatus" role="status"></span><div class="notice">CSCE 482 backup: ${data.groups.find(g=>g.course==='CSCE 482')?.sections.filter(s=>s.crn!==selected(data.groups.find(g=>g.course==='CSCE 482'))?.crn).map(s=>esc(s.crn)).join(', ')||'select an alternate in Plan'}</div></section></div>`;document.querySelectorAll('[data-task]').forEach(cb=>{cb.checked=localStorage.getItem('task'+cb.dataset.task)==='true';cb.onchange=()=>localStorage.setItem('task'+cb.dataset.task,cb.checked)});document.querySelector('#copy').onclick=async()=>{try{await navigator.clipboard.writeText(crns.join('\n'));document.querySelector('#copystatus').textContent='Copied.'}catch{document.querySelector('#copystatus').textContent='Select and copy the CRNs above.'}}}
-document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));render()});fetch('/api/data').then(r=>{if(!r.ok)throw Error('Course data could not load');return r.json()}).then(x=>{data=x;render()}).catch(()=>main.innerHTML='<div class="empty">Could not load the local course data. Check that both JSON files exist in data/ and restart the app.</div>');
-</script></main></body></html>
+const $ = selector => document.querySelector(selector);
+const state = { offset: 0, limit: 100, request: 0, gradeRequest: 0 };
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+}[char]));
+
+function params() {
+  const values = [
+    ['query', 'q'], ['term', 'term'], ['subject', 'subject'],
+    ['instructor', 'instructor'], ['day', 'day'],
+    ['starts-after', 'starts_after'], ['ends-before', 'ends_before'],
+    ['attribute', 'attribute'], ['min-gpa', 'min_gpa'],
+    ['max-gpa', 'max_gpa'], ['min-ab-rate', 'min_ab_rate']
+  ];
+  const result = new URLSearchParams();
+  for (const [id, key] of values) {
+    const value = $(`#${id}`).value.trim();
+    if (value) result.set(key, value);
+  }
+  if ($('#campus').checked) result.set('campus', 'College Station');
+  result.set('limit', state.limit);
+  result.set('offset', state.offset);
+  return result;
+}
+
+async function responseError(response) {
+  const body = await response.json().catch(() => ({}));
+  return body.error || `Request failed (${response.status})`;
+}
+
+function availability(section) {
+  if (section.seats) return `${escapeHtml(section.seats)} seats reported`;
+  if (section.open_flag === 'Y') return 'Open status · seat count unavailable';
+  if (section.open_flag === 'N') return 'Closed status · seat count unavailable';
+  return 'Availability not reported';
+}
+
+function sectionCard(section) {
+  const times = (section.meetings || []).map(meeting => {
+    const days = escapeHtml(meeting.days || 'No days');
+    const time = meeting.begin
+      ? `${escapeHtml(meeting.begin)}-${escapeHtml(meeting.end || '')}`
+      : 'Time not listed';
+    const place = [meeting.building, meeting.room].filter(Boolean).map(escapeHtml).join(' ');
+    return `${days} · ${time}${place ? ` · ${place}` : ''}${meeting.type ? ` · ${escapeHtml(meeting.type)}` : ''}`;
+  }).join('<br>') || 'Meeting details not listed';
+  const status = section.open_flag === 'Y' ? 'open' : section.open_flag === 'N' ? 'closed' : 'unknown';
+  const history = section.grade_sections
+    ? `Historical mean GPA: ${section.average_gpa == null ? 'not reported' : Number(section.average_gpa).toFixed(2)} · A/B rate: ${section.ab_rate == null ? 'not reported' : `${Number(section.ab_rate).toFixed(1)}%`} across ${section.grade_sections} records`
+    : 'No historical grade data loaded';
+  return `<article class="section">
+    <div><div class="label">${escapeHtml(section.subject)} ${escapeHtml(section.course)} · Section ${escapeHtml(section.section)}</div>
+      <div class="course">CRN ${escapeHtml(section.crn)}</div><div class="section-title">${escapeHtml(section.title)}</div>
+      <div class="subtext">${escapeHtml(section.hours ?? 'Hours not listed')} credit hours</div>
+      <div class="subtext">Attributes: ${escapeHtml(section.attributes || 'None listed')}</div>
+      <div class="subtext">${escapeHtml(history)}</div></div>
+    <div><div class="label">Meeting time and room</div><div class="subtext">${times}</div></div>
+    <div><div class="label">Instructor</div><div>${escapeHtml((section.instructors || []).join(', ') || 'Not listed')}</div>
+      <div class="subtext">${escapeHtml(section.site || 'Campus not listed')} · ${escapeHtml(section.source)}</div></div>
+    <div class="actions"><div class="label">Public availability</div>
+      <div class="availability ${status}">${availability(section)}</div>
+      <button class="linkbutton grades" type="button" data-subject="${escapeHtml(section.subject)}"
+        data-course="${escapeHtml(section.course)}" data-title="${escapeHtml(`${section.subject} ${section.course} · ${section.title}`)}">View grade data</button>
+    </div>
+  </article>`;
+}
+
+async function loadSections(reset = true) {
+  if (reset) state.offset = 0;
+  const request = ++state.request;
+  $('#results').setAttribute('aria-busy', 'true');
+  $('#error').classList.add('hidden');
+  $('#feedback').textContent = '';
+  try {
+    const response = await fetch(`/api/sections?${params()}`);
+    if (!response.ok) throw Error(await responseError(response));
+    const data = await response.json();
+    if (request !== state.request) return;
+    const sections = data.sections || [];
+    const content = sections.map(sectionCard).join('');
+    if (reset) $('#results').innerHTML = content;
+    else $('#results').insertAdjacentHTML('beforeend', content);
+    $('#count').textContent = `${sections.length ? state.offset + sections.length : 0} sections loaded`;
+    $('#page-label').textContent = `Page ${Math.floor(state.offset / state.limit) + 1}`;
+    $('#more').hidden = sections.length < state.limit;
+    $('#results').setAttribute('aria-busy', 'false');
+    if (!sections.length && reset) {
+      $('#results').innerHTML = '<div class="empty"><strong>No sections match these filters.</strong><p>Clear a filter or search for a course, instructor, or CRN.</p></div>';
+    }
+  } catch (error) {
+    if (request !== state.request) return;
+    $('#results').setAttribute('aria-busy', 'false');
+    $('#error').innerHTML = `<strong>Unable to load sections.</strong><p>${escapeHtml(error.message)} Check the local data files or refresh the public section snapshot.</p>`;
+    $('#error').classList.remove('hidden');
+  }
+}
+
+async function loadSummary() {
+  try {
+    const response = await fetch('/api/summary');
+    if (!response.ok) throw Error(await responseError(response));
+    const summary = await response.json();
+    $('#source').textContent = `${summary.sections.toLocaleString()} sections · ${summary.courses.toLocaleString()} courses · latest term ${summary.latest_term || 'not listed'}`;
+    if (summary.last_updated) {
+      $('#source').title = `Local index updated ${new Date(summary.last_updated * 1000).toLocaleString()}`;
+    }
+  } catch {
+    $('#source').textContent = 'Local data status unavailable';
+  }
+}
+
+async function loadTerms() {
+  const response = await fetch('/api/terms');
+  if (!response.ok) throw Error(await responseError(response));
+  const data = await response.json();
+  const select = $('#term');
+  select.replaceChildren(new Option('All available terms', ''));
+  for (const term of data.terms || []) select.add(new Option(term.label || term.term, term.term));
+  const preferred = (data.terms || []).find(term => term.term === '202711') || (data.terms || [])[0];
+  select.value = preferred?.term || '';
+}
+
+async function loadSubjects() {
+  const query = new URLSearchParams();
+  if ($('#term').value) query.set('term', $('#term').value);
+  const response = await fetch(`/api/subjects?${query}`);
+  if (!response.ok) throw Error(await responseError(response));
+  const data = await response.json();
+  const select = $('#subject');
+  const selected = select.value;
+  select.replaceChildren(new Option('All subjects', ''));
+  for (const subject of data.subjects || []) select.add(new Option(subject, subject));
+  if ([...select.options].some(option => option.value === selected)) select.value = selected;
+}
+
+async function openGrades(subject, course, title) {
+  $('#grade-title').textContent = `${subject} ${course} grade distributions`;
+  $('#grade-course').textContent = title;
+  $('#grade-content').textContent = '';
+  $('#grade-status').textContent = 'Loading historical grades...';
+  $('#grade-dialog').showModal();
+  await renderGrades(subject, course);
+}
+
+async function renderGrades(subject, course) {
+  const request = ++state.gradeRequest;
+  try {
+    const response = await fetch(`/api/grades?subject=${encodeURIComponent(subject)}&course=${encodeURIComponent(course)}`);
+    if (!response.ok) throw Error(await responseError(response));
+    const rows = (await response.json()).grades || [];
+    if (request !== state.gradeRequest) return;
+    if (!rows.length) {
+      $('#grade-content').innerHTML = '<p>No grade rows are stored yet.</p><button class="button" type="button" id="fetch-grades">Fetch historical grade data</button><p class="subtext">This sends one course request to anex.us. Or open the <a href="https://web-as.tamu.edu/gradereports" target="_blank" rel="noopener noreferrer">Registrar grade reports</a> and import a PDF with <code>cargo run --release -- import-grades &lt;report.pdf&gt;</code>. PDF import needs Poppler <code>pdftotext</code>; CSV is also accepted.</p>';
+      $('#grade-status').textContent = '';
+      $('#fetch-grades').addEventListener('click', async event => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        button.textContent = 'Fetching...';
+        $('#grade-status').textContent = 'Requesting one course. This can take a few seconds.';
+        try {
+          const result = await fetch(`/api/grades/${encodeURIComponent(subject)}/${encodeURIComponent(course)}/refresh`, { method: 'POST' });
+          if (!result.ok) throw Error(await responseError(result));
+          await renderGrades(subject, course);
+        } catch (error) {
+          $('#grade-status').textContent = `Unable to fetch grades: ${error.message}`;
+          button.disabled = false;
+          button.textContent = 'Try again';
+        }
+      }, { once: true });
+      return;
+    }
+    const sources = [...new Set(rows.map(row => row.source))].join(', ');
+    const latestFetch = Math.max(0, ...rows.map(row => row.fetched_at || 0));
+    const retrieved = latestFetch ? ` · retrieved ${new Date(latestFetch * 1000).toLocaleDateString()}` : '';
+    $('#grade-status').textContent = `${rows.length} historical section records · ${sources || 'source not listed'}${retrieved} · term shown per row`;
+    $('#grade-content').innerHTML = `<div class="grade-table-wrap"><table><thead><tr>
+      <th>Term</th><th>Section</th><th>Instructor</th><th>GPA</th><th>A</th><th>B</th><th>C</th><th>D</th><th>F</th><th>Q</th>
+      </tr></thead><tbody>${rows.map(row => `<tr>
+        <td>${escapeHtml([row.semester, row.year].filter(Boolean).join(' ') || 'Term not listed')}</td>
+        <td>${escapeHtml(row.section || 'Not listed')}</td>
+        <td>${escapeHtml(row.instructor || 'Not listed')}</td><td>${escapeHtml(row.gpa ?? 'Not listed')}</td>
+        <td>${escapeHtml(row.grade_a ?? '-')}</td><td>${escapeHtml(row.grade_b ?? '-')}</td>
+        <td>${escapeHtml(row.grade_c ?? '-')}</td><td>${escapeHtml(row.grade_d ?? '-')}</td>
+        <td>${escapeHtml(row.grade_f ?? '-')}</td><td>${escapeHtml(row.grade_q ?? '-')}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+  } catch (error) {
+    if (request === state.gradeRequest) $('#grade-status').textContent = `Unable to load grades: ${error.message}`;
+  }
+}
+
+$('#filters').addEventListener('submit', event => {
+  event.preventDefault();
+  loadSections();
+});
+$('#term').addEventListener('change', async () => {
+  try {
+    await loadSubjects();
+    await loadSections();
+  } catch (error) {
+    $('#feedback').textContent = `Unable to load subjects: ${error.message}`;
+  }
+});
+$('#campus').addEventListener('change', () => loadSections());
+$('#more').addEventListener('click', () => {
+  state.offset += state.limit;
+  loadSections(false);
+});
+$('#results').addEventListener('click', event => {
+  const button = event.target.closest('.grades');
+  if (button) openGrades(button.dataset.subject, button.dataset.course, button.dataset.title);
+});
+$('#close-dialog').addEventListener('click', () => $('#grade-dialog').close());
+$('#grade-dialog').addEventListener('click', event => {
+  if (event.target === $('#grade-dialog')) $('#grade-dialog').close();
+});
+$('#refresh').addEventListener('click', async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  button.textContent = 'Refreshing...';
+  $('#feedback').textContent = 'Fetching public course sections. This can take up to 90 seconds.';
+  try {
+    const response = await fetch('/api/sections/refresh', { method: 'POST' });
+    if (!response.ok) throw Error(await responseError(response));
+    const result = await response.json();
+    const message = `Updated ${result.count.toLocaleString()} sections from ${result.source}.`;
+    await loadSummary();
+    await loadSections();
+    $('#feedback').textContent = message;
+  } catch (error) {
+    $('#feedback').textContent = `Unable to refresh: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Refresh public sections';
+  }
+});
+
+async function initialize() {
+  await Promise.all([loadSummary(), loadTerms()]);
+  await loadSubjects();
+  await loadSections();
+}
+initialize().catch(error => {
+  $('#feedback').textContent = `Unable to initialize search: ${error.message}`;
+});
+</script>
+</body>
+</html>

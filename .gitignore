@@ -1,4 +1,6 @@
 data/s27.json
+data/s27_watch_state.json
 __pycache__/
 target/
 docs/INK-DEGREE-NOTES.md
+data/asb.sqlite*

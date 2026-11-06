@@ -1,24 +1,42 @@
 # ASB+
 
-Local, read-only registration planning prototype for Spring 2027 at Texas A&M College Station.
+Local-first course search and grade history for Texas A&M. The server is Rust, Axum, and SQLite. The app binds to `127.0.0.1` and does not handle login or registration.
 
 ## Run
 
-Requires Rust and Cargo. Keep the provided `data/s27.json` and `data/s27_watch_state.json` files in `data/` (the full section dump is intentionally gitignored).
+Requires Rust, Cargo, and the supplied `data/s27.json` Spring 2027 section file. The section file and local database are not committed.
 
 ```sh
 cargo run --release
 ```
 
-Open <http://127.0.0.1:8000>. The app indexes the local JSON data at startup, then serves the interface and course data locally. Stop it with Ctrl+C.
+Open <http://127.0.0.1:8000>. On first launch, the app indexes `data/s27.json` into `data/asb.sqlite`. Set `ASB_DB_PATH` to use another database path. Stop the server with Ctrl+C.
 
-For a development build, use `cargo run`.
+## Refresh sections
 
-## Prototype scope
+Use the button in the app or run:
 
-- **Plan:** six requested courses, default picks, and available sections for changing the planned section.
-- **Sections:** course search, a College Station filter, meeting details, and coarse public seat data with an eligibility warning.
-- **Schedules:** checks preferred section picks for time overlaps and ranks conflict-free schedules without 8 AM starts first, then by reported positive public seats.
-- **Ticket day:** preflight checklist saved in the browser, Howdy link, ordered CRNs, and copy action.
+```sh
+cargo run --release -- refresh-howdy
+```
 
-This app does not submit registration, access an account, bypass SSO/Duo, determine eligibility, refresh data, or claim live seat availability. The registration countdown is a static date label. The local data files are required; the large section dump is not committed.
+This makes one public Howdy request. Refreshes are limited to one per six hours. The API may take up to 90 seconds. Public `Y/N` open status is not a numeric seat count.
+
+## Import grades
+
+Select a term and college in the [TAMU Registrar grade reports](https://web-as.tamu.edu/gradereports), download its Grade Distribution PDF, then run:
+
+```sh
+cargo run --release -- import-grades /path/to/report.pdf
+```
+
+PDF import requires Poppler's `pdftotext` command. The command also accepts a CSV with subject and course columns and optional section, instructor, term, GPA, and A-F/Q counts. In the app, the grade button can fetch one course from anex.us; successful results are cached for 24 hours.
+
+## Current scope
+
+- Search sections by course, CRN, instructor, term, campus, attributes, day, and time.
+- Filter by historical mean GPA and A/B share. Lower mean GPA is only a difficulty proxy. A/B share uses A-F counts and excludes Q.
+- Review public open status and historical grade rows with source and term details.
+- No SSO, Duo, credentials, enrollment submission, or private student data leaves the browser.
+
+Professor comparison, schedule generation, degree planning, the browser extension, seat alerts, and registration preflight are planned phases. See `docs/SUMMARY.md`.

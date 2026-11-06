@@ -1,35 +1,47 @@
-# Prototype summary
+# ASB+ implementation status
 
 ## What works
 
-- Rust server loads and indexes the local Spring 2027 section dump; measured startup indexed the 19 sections for the six planned courses in 0.32 seconds.
-- Plan screen shows section choices and instructor names.
-- Sections screen filters by College Station, course, instructor, or CRN; it shows meeting data and labels seat data as coarse.
-- Schedules screen checks preferred picks for time overlaps, treats each CSCE 482 meeting block separately, and ranks schedules by avoiding 8 AM starts then favoring reported positive public seats.
-- Ticket day shows the registration window, a browser-persisted preflight checklist, ordered CRNs, a copy action, and alternate CSCE 482 CRNs.
-- The app is local and read-only. It does not sign in, submit registration, or bypass SSO/Duo.
+- Rust/Axum app with an indexed SQLite database, bound to localhost.
+- Search and filter sections by term, subject, course, CRN, instructor, College Station campus, attribute, meeting day/time, historical mean GPA, and A/B share.
+- Course and section results show meetings, instructors, attributes, open status, data source, and whether seats are unavailable. Public open/closed flags are not seat counts.
+- Manual public Howdy refresh. It can take up to 90 seconds and is limited to one request every six hours. Failed refreshes preserve existing data.
+- Historical grade distributions by course, instructor, section, and term. The app can query anex.us with a 24-hour cache and import TAMU Registrar Grade Distribution PDFs or CSV files. PDF import requires Poppler's `pdftotext`.
+- Registrar records take precedence over matching anex records for the same course, term, and section.
+- Mean GPA and A/B share filters. Lower mean GPA is only a difficulty proxy. A/B share is computed from A-F counts; Q is excluded.
+- Local deployment currently indexes 20,703 sections and 5,007 courses. These counts include the supplied Spring 2027 data and a public Howdy refresh.
+- No SSO, Duo, credentials, private student imports, or registration submission.
 
 ## Stubbed or not included
 
-- Seat counts can be NA or stale; no live Schedule Builder connection or refresh is implemented.
-- Eligibility and prerequisites are not determined. Confirm them in Howdy.
-- Registration countdown is a fixed date label, not a live timer. Howdy checklist links lead to the general portal.
-- Schedule choices use preferred section flags. Seat ranking uses only the provided coarse public snapshot. No degree-plan import, grades, RMP, alerts, or live seat ranking.
-- The local `data/s27.json` and `data/s27_watch_state.json` files are required. `data/s27.json` is gitignored; the personalized watch-state file is local-only and is not included in the commit.
+- Professor profiles and comparisons, including RMP. No RMP requests are made; permission and terms remain an open decision.
+- Schedule generation, schedule comparisons, and local schedule-fit imports.
+- UGDP and degree-audit imports, catalog requirement matching, and requirement-aware course picking.
+- Browser extension, visible-page seat alerts, Holds/Action Items, time-ticket countdown, CRN ordering, and backups.
+- Public Howdy data does not provide numeric seat counts. Confirm availability, eligibility, and registration in Howdy.
+- The supplied `data/s27.json` and local SQLite database are not committed. Grade imports are local and must be repeated on another installation.
 
 ## Run
 
-Requires Rust and Cargo. Place both provided JSON files in `data/`, then run:
+Requires Rust, Cargo, the supplied `data/s27.json`, and Poppler only for PDF imports:
 
 ```sh
 cargo run --release
 ```
 
-Open <http://127.0.0.1:8000>. The server indexes the section data at launch. Stop it with Ctrl+C. See `README.md` for screen details.
+Open <http://127.0.0.1:8000>. The app creates `data/asb.sqlite` and indexes the local section file on first launch. Set `ASB_DB_PATH` to use a different database. Stop the server with Ctrl+C.
+
+Use **Refresh public sections** for a manual Howdy refresh. To import a Registrar PDF, download a report from <https://web-as.tamu.edu/gradereports> and run:
+
+```sh
+cargo run --release -- import-grades /path/to/report.pdf
+```
+
+The importer also accepts CSV. Use `cargo run --release -- refresh-howdy` to refresh public sections from the command line.
 
 ## Next steps
 
-1. Verify eligibility and restrictions using explicit user-entered completed courses and authoritative catalog data.
-2. Add a controlled refresh path and live seat source only with the user's authorized access.
-3. Improve ranked schedule alternatives and include broader section combinations.
-4. Import degree-planner and tracked-elective data.
+1. Add professor insights and course/professor comparisons. Keep RMP disabled until permission and use are resolved.
+2. Build complete conflict-free schedules and browser-local schedule fit.
+3. Add browser-local degree planning, requirement matching, and the Schedule Builder extension.
+4. Add local registration preflight and ticket-day tools.
