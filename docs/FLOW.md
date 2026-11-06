@@ -5,7 +5,7 @@
 The four-step flow treated planning as separate destinations. That did not make Schedule Builder, grade history, instructor information, and requirement matches feel like one tool.
 
 1. The student starts in the standalone planner, then opens Schedule Builder and separately installs or opens the extension.
-2. The extension needs a manually exported and imported snapshot before it can show grades or requirement matches.
+2. The extension reads public section, grade, and instructor data live from the local ASB+ backend. A planner snapshot is optional and only adds requirement rules.
 3. Finding a course, saving its section, and comparing it with other sections happen in different places.
 4. Grade and instructor context is not the same as Anex.US section history, and the RMP area only said that ratings were disabled.
 5. The student must leave the section decision to search RMP, with no direct path from the instructor name.
@@ -18,9 +18,10 @@ Treat the browser extension as the main course comparison surface, like UT Regis
 
 ### 1. Load course context
 
-- In the ASB+ planner, enter the course codes for sections to compare and export a local extension snapshot.
-- Import the snapshot in the extension popup. It contains public section data, historical grade summaries, and user-authored requirement matches. It does not contain the degree plan, audit, transcript, numeric seats, or RMP data.
-- The extension does not make network requests. The export/import step is still manual and is a known gap.
+- Keep the ASB+ backend running on hp and the localhost:8000 tunnel open. The extension popup connects automatically and shows the term and section count.
+- **Find sections** searches live public sections, historical grades, and instructor context from the backend. Results also show requirement fits when planning rules are present.
+- Optionally import a planner snapshot under **Backend and planning data**. It adds the student's requirement rules and stays in extension-local storage. It does not contain the degree plan, audit, transcript, numeric seats, or RMP data, and it does not replace live section data.
+- The extension requests only the local ASB+ backend. It sends no degree, audit, or transcript data and makes no third-party requests.
 - Next action: search a course, instructor, title, or CRN under **Find sections**.
 
 ### 2. Compare a section where the choice happens
@@ -34,7 +35,7 @@ Treat the browser extension as the main course comparison surface, like UT Regis
 
 - The **Saved** view lists each saved CRN with its meeting times, grade context, public flag, instructor link, and requirement fit.
 - Compare saved meeting blocks and report exact overlaps. If any meeting time is missing, say that the check is incomplete and ask the student to confirm it in Schedule Builder.
-- Refresh by exporting and importing a new snapshot. A public-flag alert appears only after an imported value changes; a visible-status alert appears only after the student's open page visibly changes from closed to open.
+- Refresh with **Refresh from ASB+** after the backend updates public sections. A public-flag alert appears when a saved CRN's observed flag changes; a visible-status alert appears only after the student's open page visibly changes from closed to open.
 - Next action: resolve any conflict or copy the saved CRNs manually for a Howdy handoff.
 
 ### 4. Register in Howdy
@@ -47,6 +48,6 @@ Treat the browser extension as the main course comparison surface, like UT Regis
 
 - This is not a replacement for Howdy registration or authenticated Schedule Builder actions.
 - RMP ratings and reviews remain off until written permission and approved use are confirmed. A user-clicked search link is the only RMP integration in this flow.
-- The current manual snapshot transfer separates the planner from the extension. A later design can remove that friction only with explicit user opt-in and a clear local-data boundary.
-- Degree plan and audit imports stay in the planner's local browser storage. Only student-authored requirement matches appear in an exported extension snapshot.
-- Test the extension with a student using a synthetic or public page only. Do not sign in or inspect authenticated Schedule Builder pages without explicit authorization.
+- Public section data now arrives live from the local backend. Requirement rules still need an optional planner snapshot export and import.
+- Degree plan and audit imports stay in the planner's local browser storage. Only rule definitions and rule-based requirement matches reach the extension.
+- The extension has not been validated against the signed-in Schedule Builder DOM. Only inspect an authenticated page in the student's own browser with their explicit authorization. Never sign in, handle credentials, or reuse their cookies on their behalf.

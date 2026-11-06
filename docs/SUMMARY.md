@@ -23,23 +23,34 @@
 - Mark a plan approved locally, lock it, and retain an approved snapshot when starting a revision. This is a local note and is not verified by Howdy.
 - Find public sections for a confirmed rule using its course codes and entered section constraints. Add matching CRNs to local schedule choices; stale CRNs are reported, not silently replaced.
 - Plan, audit, requirement, and profile data stay in IndexedDB. The app does not send these records to its server.
-- The unpacked Manifest V3 extension imports public sections, historical course and instructor grades, and user-authored requirement matches from a local snapshot. It does not include a degree plan, audit, transcript, numeric seats, or RMP data.
-- The extension popup now searches imported sections by course, instructor, title, or CRN. It shows meeting times, source and freshness, public flags, historical grade context, instructor grade matches, user-clicked RMP search links, requirement fits, and conflicts with saved sections.
-- Save sections from the popup or a visible Schedule Builder row. The Saved view compares meeting-time conflicts and preserves section alerts in extension-local storage.
-- The in-page overlay adds meeting times, grade and requirement context, instructor grade summaries, a direct RMP search link, a visible status observation, conflict context, and a save action to rows with a visible five-digit CRN.
-- Alerts appear for an observed visible closed/full-to-open change and for public open/closed flag changes between manual snapshot imports. The extension makes no network requests and does not reload, modify, or submit the Schedule Builder page.
-- The extension parser requires a visible row with an identifiable five-digit CRN and explicit open/closed wording. It was tested on a synthetic page, not on a signed-in Schedule Builder page, so support for the live site's DOM and wording is not verified.
+- The unpacked Manifest V3 extension reads public sections, historical course and instructor grades, and instructor data live from the local ASB+ backend at `http://localhost:8000` through the SSH tunnel. A background service worker owns those requests; its host permission is limited to Schedule Builder and loopback. It makes no third-party requests.
+- The extension popup connects automatically and shows the backend term and counts. **Find sections** searches live sections by course, instructor, title, or CRN. It shows meeting times, source and freshness, public flags, historical grade context, instructor grade matches, user-clicked RMP search links, requirement fits, and conflicts with saved sections.
+- Save sections from the popup or a visible Schedule Builder row. Saved section data is cached in extension-local storage. The Saved view compares meeting-time conflicts and preserves section alerts.
+- The in-page overlay adds meeting times, grade and requirement context, instructor grade summaries, a direct RMP search link, a visible status observation, conflict context, and a save action to rows with a visible five-digit CRN. It resolves those CRNs through the backend service worker and falls back to any imported planner data.
+- Alerts appear for an observed visible closed/full-to-open change and for public open/closed flag changes on saved CRNs, tracked separately from the cache. The extension does not reload, modify, or submit the Schedule Builder page.
+- Importing a planner snapshot is optional and now adds only requirement rules. It does not replace live section data.
+- The extension parser requires a visible row with an identifiable five-digit CRN. It recognizes explicit open/closed, full, and available wording. It does not recognize status text it cannot parse, so the overlay can still show section details without a visible status. **Backend and planning data > Check Schedule Builder page** reports detected CRNs, parsed statuses, element classes, and whether a CRN label appears in page text.
 - Preflight lets the user enter a registration-window time and IANA time zone. It shows a local countdown, handles elapsed times, and rejects local times that do not exist during a daylight-saving clock change.
 - The user can maintain a local Holds/Action Items checklist with editable completion state. ASB+ does not read Howdy to detect or verify holds.
 - A ranked schedule can become the primary ordered CRN list. The user can reorder courses, record why the order matters, and add backup CRNs only from generated schedules that fit the other chosen primary sections. Stale backups stay visible and are marked for manual verification.
 - The copy action copies primary CRNs only. If clipboard access fails, ASB+ selects the list for manual copying. Howdy and Schedule Builder links open in separate tabs; the app cannot submit enrollment.
 - Countdown, checklist, ordered CRNs, ordering reason, and backup CRNs stay in browser local storage and are not sent to the server.
 
+## Verified live integration (Nov 6, 2026)
+
+- Loaded `extension/` unpacked in Chrome for Testing 150 against the ASB+ backend on hp through the `localhost:8000` SSH tunnel.
+- The popup connected and showed Spring 2027, 20,703 sections, and 5,007 courses.
+- Searched `CSCE 482`: 10 live sections with meeting blocks, `howdy-public` source, mean GPA 3.81, 96.9% A/B, 111 grade records, and anex/registrar-pdf sources.
+- Saved three CRNs. The Saved view reported the exact meeting-time conflict between CRNs 37075 and 37077 and reported no conflict for a non-overlapping section.
+- Rendered the overlay on a routed page at `https://tamu.collegescheduler.com/test` with Schedule Builder-shaped rows. It resolved both CRNs through the backend, showed live meetings and grades, parsed visible Open/Closed status, reported conflicts, and exposed Save/Remove state.
+- Ran **Check Schedule Builder page** against that page: 2 detected rows, 2 overlay panels, 2 distinct CRNs in page text, and row element tags/classes returned.
+- Not verified live: the DOM of the signed-in `tamu.collegescheduler.com` Schedule Builder. No credentials, SSO, Duo, or cookies were used and the browser was not signed in. The real page needs Kyler's own signed-in session.
+
 ## Stubbed or not included
 
 - RMP ratings and reviews are not embedded. The extension only opens an RMP search when the student clicks an instructor link. Automated access and redistribution remain disabled until permission and approved use are resolved.
-- Extension section data still needs a manual snapshot export from the planner and import into the popup. There is no automatic sync.
-- The extension's degree context includes only requirement matches exported by the planner. Private plan, audit, and transcript data are not copied to the extension.
+- The signed-in Schedule Builder DOM and status wording are not verified. The parser needs a visible five-digit CRN. If the live page hides CRNs or renders them outside readable text, the overlay cannot attach; use **Check Schedule Builder page** to diagnose.
+- The extension's requirement context comes from rules in an optional planner snapshot import. Private plan, audit, and transcript data stay in the planner.
 - The public section data does not reliably link separate lecture and lab CRNs. ASB+ does not guess the pairings; confirm separate components in Howdy.
 - Schedule ranking does not use walking distance because reliable campus paths are not available.
 - Built-in catalog program requirements, automatic Howdy UGDP/audit sync, and official audit or eligibility checks. Users must enter or import rules for their program and catalog year.
@@ -66,12 +77,12 @@ cargo run --release -- import-grades /path/to/report.pdf
 
 The importer also accepts CSV. Use `cargo run --release -- refresh-howdy` to refresh public sections from the command line.
 
-In ASB+, enter course codes and choose **Download local extension snapshot**. Import that JSON in the extension popup. Refresh public sections first when you need a newer public flag. Use **Find sections** to search the snapshot, save CRNs, and open RMP search links for instructors. Use **Saved** to check meeting-time conflicts. The extension shows RMP links only; it does not fetch or display ratings.
+Start the ASB+ backend on hp and keep the `localhost:8000` tunnel open. Open the extension popup; it connects automatically. Use **Find sections** to search live sections, save CRNs, and open RMP search links for instructors. Use **Saved** to check meeting-time conflicts. Use **Refresh from ASB+** after refreshing public sections in ASB+, or to reload after the backend data changes. Optionally import a planner snapshot under **Backend and planning data** to add requirement rules; no section snapshot is needed. The extension shows RMP links only; it does not fetch or display ratings.
 
-The live Schedule Builder parser has not been validated on its signed-in page. It reads visible rendered row text only and only recognizes rows with a five-digit CRN and explicit open/closed wording.
+The signed-in Schedule Builder parser is still unverified. It reads visible rendered row text only and needs a five-digit CRN for each row. Use **Check Schedule Builder page** on the active tab to report what it detects.
 
 ## Next steps
 
-1. Remove the manual snapshot export/import step without expanding extension permissions or sending degree data to the server.
+1. Verify the parser on a signed-in Schedule Builder page in the student's own browser. Run **Check Schedule Builder page** and adjust selectors or status wording if the real DOM differs.
 2. Resolve permission and approved use before considering RMP ratings or reviews.
-3. Test the extension with students on a synthetic or public Schedule Builder-like page, then verify the visible-page parser only with authorized access.
+3. Add a path for the student's requirement rules without a manual planner snapshot export, while keeping private plan, audit, and transcript data out of the extension and server.

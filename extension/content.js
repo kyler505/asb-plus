@@ -6,6 +6,9 @@
   const alertsKey = 'asbAlerts';
   const alertLimit = 50;
   const seenAlertIds = new Set();
+  const liveSections = new Map();
+  const liveRequested = new Set();
+  const liveMissAt = new Map();
   let queued = false;
   let scanChain = Promise.resolve();
   let watchUpdateChain = Promise.resolve();
@@ -23,8 +26,19 @@
   }
 
   function crnFrom(text) {
-    const values = [...new Set(text.match(/\b\d{5}\b/g) || [])];
+    const values = [...new Set(text.match(/(?<!\d)\d{5}(?!\d)/g) || [])];
     return values.length === 1 ? values[0] : '';
+  }
+
+  function statusFromLeaves(node) {
+    for (const element of node.querySelectorAll('*')) {
+      if (element.children.length) continue;
+      const value = `${element.textContent || ''} ${element.getAttribute('aria-label') || ''} ${element.getAttribute('title') || ''}`.trim();
+      if (!value || value.length > 40) continue;
+      const status = statusFromVisibleText(value);
+      if (status) return status;
+    }
+    return '';
   }
 
   function statusFromVisibleText(value) {
@@ -47,7 +61,7 @@
       if (!text || text.length > 1800) continue;
       const crn = crnFrom(text);
       if (!crn) continue;
-      const candidate = { node, crn, text, status: statusFromVisibleText(text) };
+      const candidate = { node, crn, text, status: statusFromVisibleText(text) || statusFromLeaves(node) };
       const previous = best.get(crn);
       if (!previous || text.length < previous.text.length) best.set(crn, candidate);
     }
@@ -67,12 +81,10 @@
     return [...left.days].some(day => right.days.includes(day));
   }
 
-  function trackedConflictText(section, watchCrns, snapshot) {
+  function trackedConflictText(section, watchCrns, lookup) {
     if (!watchCrns.includes(section.crn)) return 'Save this section to compare it with other saved sections.';
     const otherCrns = watchCrns.filter(crn => crn !== section.crn);
     if (!otherCrns.length) return 'No other sections are saved.';
-    if (!snapshot) return 'Conflict check is unavailable until a local section snapshot is imported.';
-    const lookup = new Map(snapshot.sections.map(item => [String(item.crn), item]));
     const matches = [];
     let incomplete = section.unknownMeetingBlocks > 0 || !section.meetings.length;
     for (const crn of otherCrns) {
@@ -85,8 +97,8 @@
     }
     if (matches.length) return `Meeting-time conflict with saved CRN ${matches.join(', ')}.`;
     return incomplete
-      ? 'No known overlap found, but some saved meeting times are missing from the local snapshot.'
-      : `No meeting-time overlap with ${otherCrns.length} other saved section(s) in this local snapshot.`;
+      ? 'No known overlap found, but some saved meeting times are unavailable from ASB+.'
+      : `No meeting-time overlap with ${otherCrns.length} other saved section(s).`;
   }
 
   function makeElement(tag, className, content) {
@@ -97,13 +109,14 @@
   }
 
   function addRmpSearchLink(panel, name) {
+    const cleaned = String(name || '').replace(/\s*\([^)]*\)/g, '').trim();
     const url = new URL('https://www.ratemyprofessors.com/search/professors/1003');
-    url.searchParams.set('q', name);
+    url.searchParams.set('q', cleaned);
     const link = document.createElement('a');
     link.href = url.toString();
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    link.textContent = `Search RMP for ${name}`;
+    link.textContent = `Search RMP for ${cleaned}`;
     link.style.color = '#500000';
     link.style.fontWeight = '700';
     panel.append(link);
@@ -111,8 +124,8 @@
 
   function meetingSummary(section) {
     if (!section.meetings?.length) return section.unknownMeetingBlocks
-      ? 'Meeting times are missing from this snapshot. Confirm them in Schedule Builder.'
-      : 'No meeting times are listed in this snapshot.';
+      ? 'Meeting times are missing from ASB+ data. Confirm them in Schedule Builder.'
+      : 'No meeting times are listed in ASB+ data.';
     const days = { M: 'Mon', T: 'Tue', W: 'Wed', R: 'Thu', F: 'Fri', S: 'Sat', U: 'Sun' };
     const clock = minutes => {
       const hour = Math.floor(minutes / 60) % 24;
@@ -125,7 +138,7 @@
     return blocks.join(' | ');
   }
 
-  function addSectionInfo(panel, section, row, watchCrns, snapshot) {
+  function addSectionInfo(panel, section, row, watchCrns, lookup) {
     const title = section ? `${section.courseCode} · Section ${section.section} · CRN ${section.crn}` : `Visible CRN ${row.crn}`;
     panel.append(makeElement('strong', 'heading', title));
     if (section?.title) panel.append(makeElement('p', '', section.title));
@@ -144,7 +157,7 @@
       if (history.records) grades.push(`${history.records} historical grade records`);
       panel.append(makeElement('p', '', grades.length
         ? `${grades.join(' · ')} · sources: ${(history.sources || []).join(', ') || 'not listed'} · updated ${formatTime(history.updatedAt)}.`
-        : 'No historical course-grade summary is available in this snapshot.'));
+        : 'No historical course-grade summary is available.'));
       if (section.professors?.length) {
         for (const item of section.professors) {
           const details = item.averageGpa == null
@@ -155,18 +168,16 @@
         }
         panel.append(makeElement('p', 'source', 'RMP ratings and reviews are not shown here. Use a search link to view RMP directly.'));
       } else {
-        panel.append(makeElement('p', '', 'Instructor details are not listed in this snapshot. RMP ratings are not embedded.'));
+        panel.append(makeElement('p', '', 'Instructor details are not listed in ASB+ data. RMP ratings are not embedded.'));
       }
       const fits = section.requirementFits || [];
       panel.append(makeElement('p', 'section-label', fits.length ? 'Requirement fit' : 'Requirement fit not listed'));
       for (const fit of fits) {
         panel.append(makeElement('p', fit.matches ? 'fit-match' : 'fit-miss', `${fit.matches ? 'Potential fit' : 'Does not match'}: ${fit.name} (${fit.kind})${fit.track ? ` · Track ${fit.track}` : ''}. ${fit.reason}`));
       }
-      panel.append(makeElement('p', 'conflict', trackedConflictText(section, watchCrns, snapshot)));
+      panel.append(makeElement('p', 'conflict', trackedConflictText(section, watchCrns, lookup)));
     } else {
-      panel.append(makeElement('p', '', snapshot
-        ? 'This CRN is not in the imported snapshot. Add its course to the ASB+ extension snapshot and import a fresh file for grade and requirement details.'
-        : 'Import a local ASB+ snapshot for historical grade, instructor, and requirement details.'));
+      panel.append(makeElement('p', '', 'ASB+ has no section data for this CRN in its current term. Confirm the course in ASB+ or check the term in Schedule Builder.'));
     }
   }
 
@@ -218,12 +229,11 @@
     return host;
   }
 
-  function renderRow(row, saved) {
+  function renderRow(row, saved, section, lookup) {
     const watchCrns = Array.isArray(saved[watchKey]) ? saved[watchKey].map(String) : [];
-    const snapshot = saved[snapshotKey];
-    const section = snapshot?.sections?.find(item => String(item.crn) === row.crn) || null;
     const host = createPanelHost(row);
-    const signature = JSON.stringify([row.text, row.status, watchCrns, section]);
+    const conflictContext = watchCrns.map(crn => lookup.get(crn)?.meetings || null);
+    const signature = JSON.stringify([row.text, row.status, watchCrns, section, conflictContext]);
     if (host.dataset.asbSignature === signature) return;
     host.dataset.asbSignature = signature;
     const shadow = host.shadowRoot || host.attachShadow({ mode: 'open' });
@@ -232,7 +242,7 @@
     style.textContent = ':host{display:block;margin:5px 0;color:#202522;font:13px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}.panel{display:grid;gap:4px;padding:9px 11px;border:1px solid #d7dcd3;border-inline-start:4px solid #500000;border-radius:6px;background:#fff}.panel p{margin:0}.heading{color:#500000}.source{color:#525c55;font-size:12px}.section-label{margin-top:3px!important;font-weight:750}.fit-match{color:#286248}.fit-miss{color:#805c18}.conflict{font-weight:700}.watch-button{justify-self:start;min-height:34px;margin-top:3px;padding:5px 10px;border:1px solid #500000;border-radius:5px;background:#fff;color:#500000;font:inherit;font-weight:700;cursor:pointer}.watch-button:focus-visible{outline:3px solid #b46a20;outline-offset:2px}';
     const panel = document.createElement('div');
     panel.className = 'panel';
-    addSectionInfo(panel, section, row, watchCrns, snapshot);
+    addSectionInfo(panel, section, row, watchCrns, lookup);
     addWatchButton(panel, row.crn, watchCrns);
     shadow.append(style, panel);
   }
@@ -275,12 +285,38 @@
   async function scan() {
     if (document.visibilityState !== 'visible') return;
     const saved = await chrome.storage.local.get({ [watchKey]: [], [snapshotKey]: null, [observedKey]: {}, [alertsKey]: [] });
-    const watched = new Set((Array.isArray(saved[watchKey]) ? saved[watchKey] : []).map(String));
+    const watchCrns = (Array.isArray(saved[watchKey]) ? saved[watchKey] : []).map(String);
+    const watched = new Set(watchCrns);
+    const rows = visibleRows();
+    const lookup = new Map();
+    for (const item of saved[snapshotKey]?.sections || []) lookup.set(String(item.crn), item);
+    for (const [crn, section] of liveSections) lookup.set(crn, section);
+    const needed = [...new Set([...rows.map(row => row.crn), ...watchCrns])].filter(crn =>
+      !lookup.has(crn) && !liveRequested.has(crn) && !(liveMissAt.get(crn) > Date.now() - 60000)
+    );
+    if (needed.length) {
+      for (const crn of needed) liveRequested.add(crn);
+      try {
+        chrome.runtime.sendMessage({ type: 'asb-sections', crns: needed }, response => {
+          const error = chrome.runtime.lastError;
+          for (const crn of needed) liveRequested.delete(crn);
+          if (error || !response?.ok) return;
+          const sections = Array.isArray(response.sections) ? response.sections : [];
+          for (const section of sections) liveSections.set(String(section.crn), section);
+          for (const crn of needed) {
+            if (!sections.some(section => String(section.crn) === crn)) liveMissAt.set(crn, Date.now());
+          }
+          queueScan();
+        });
+      } catch {
+        for (const crn of needed) liveRequested.delete(crn);
+      }
+    }
     const observed = { ...(saved[observedKey] || {}) };
     let changed = false;
     const newAlerts = [];
-    for (const row of visibleRows()) {
-      renderRow(row, saved);
+    for (const row of rows) {
+      renderRow(row, saved, lookup.get(row.crn) || null, lookup);
       if (!row.status) continue;
       const previous = observed[row.crn];
       if (watched.has(row.crn) && previous === 'closed' && row.status === 'open') {
@@ -325,5 +361,28 @@
   const observer = new MutationObserver(queueScan);
   observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['aria-label', 'title'] });
   document.addEventListener('visibilitychange', queueScan);
+
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== 'asb-detect') return;
+    const rows = visibleRows();
+    const bodyText = document.body?.innerText || '';
+    sendResponse({
+      ok: true,
+      url: location.href,
+      title: document.title,
+      count: rows.length,
+      overlayCount: document.querySelectorAll(`[${overlayAttribute}]:not(tr)`).length,
+      bodyCrns: [...new Set(bodyText.match(/(?<!\d)\d{5}(?!\d)/g) || [])].length,
+      hasCrnLabel: /\bcrn\b/i.test(bodyText),
+      rows: rows.slice(0, 20).map(row => ({
+        crn: row.crn,
+        status: row.status,
+        tag: row.node.tagName.toLowerCase(),
+        classes: String(row.node.className || '').slice(0, 120),
+        text: row.text.replace(/\s+/g, ' ').slice(0, 240)
+      }))
+    });
+  });
+
   queueScan();
 })();

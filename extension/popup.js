@@ -6,7 +6,18 @@ const snapshotStatus = document.querySelector('#snapshot-status');
 const searchInput = document.querySelector('#section-search');
 const maxSnapshotBytes = 5 * 1024 * 1024;
 let pendingSnapshot = null;
-let current = { snapshot: null, saved: [], alerts: [] };
+let searchTimer = 0;
+let searchSequence = 0;
+let current = {
+  connected: false,
+  summary: null,
+  sections: new Map(),
+  snapshot: null,
+  saved: [],
+  alerts: [],
+  results: [],
+  query: ''
+};
 
 function text(value, max = 240) {
   return typeof value === 'string' ? value.slice(0, max) : '';
@@ -102,8 +113,8 @@ function clockLabel(minutes) {
 function meetingLabel(section) {
   if (!section.meetings.length) {
     return section.unknownMeetingBlocks
-      ? 'Some meeting times are missing from the imported data. Confirm them in Schedule Builder.'
-      : 'No meeting times are listed in the imported data.';
+      ? 'Some meeting times are missing from ASB+. Confirm them in Schedule Builder.'
+      : 'No meeting times are listed in ASB+.';
   }
   const meetings = section.meetings.map(meeting => {
     const place = [meeting.building, meeting.room].filter(Boolean).join(' ');
@@ -139,14 +150,18 @@ function timeLabel(timestamp) {
   return new Date(value * 1000).toLocaleString();
 }
 
+function rmpName(name) {
+  return String(name || '').replace(/\s*\([^)]*\)/g, '').trim();
+}
+
 function rmpUrl(name) {
   const url = new URL('https://www.ratemyprofessors.com/search/professors/1003');
-  url.searchParams.set('q', name);
+  url.searchParams.set('q', rmpName(name));
   return url.toString();
 }
 
 function addLink(parent, name) {
-  const link = element('a', 'rmp-link', `Search RMP for ${name}`);
+  const link = element('a', 'rmp-link', `Search RMP for ${rmpName(name)}`);
   link.href = rmpUrl(name);
   link.target = '_blank';
   link.rel = 'noopener noreferrer';
@@ -196,7 +211,7 @@ function createCard(section, savedCrns, savedSections) {
     }
     card.append(instructorList);
   } else {
-    addTextLine(card, 'quiet', 'Instructor names are not listed in the imported data.');
+    addTextLine(card, 'quiet', 'Instructor names are not listed in ASB+.');
   }
 
   for (const fit of section.requirementFits) {
@@ -229,53 +244,128 @@ function matchesSearch(section, query) {
   });
 }
 
-function renderBrowse() {
-  const results = document.querySelector('#section-results');
-  const status = document.querySelector('#browse-status');
-  results.replaceChildren();
-  const snapshot = current.snapshot;
-  const query = searchInput.value;
-  if (!snapshot) {
-    status.textContent = 'Import a local section snapshot to search courses, grades, instructors, and requirement matches.';
-    return;
-  }
-  if (!query.trim()) {
-    status.textContent = `${snapshot.sections.length} sections are ready. Search by course, instructor, title, or 5-digit CRN.`;
-    return;
-  }
-  const matches = snapshot.sections.filter(section => matchesSearch(section, query));
-  const ordered = matches.sort((left, right) => left.courseCode.localeCompare(right.courseCode) || left.section.localeCompare(right.section));
-  const limit = 40;
-  status.textContent = ordered.length > limit
-    ? `Showing the first ${limit} of ${ordered.length} matches. Add a course number, instructor, or CRN to narrow results.`
-    : `${ordered.length} section${ordered.length === 1 ? '' : 's'} found.`;
-  const saved = savedSections();
-  for (const section of ordered.slice(0, limit)) results.append(createCard(section, current.saved, saved));
+function snapshotSection(crn) {
+  return current.snapshot?.sections?.find(section => section.crn === String(crn)) || null;
 }
 
-function savedSections() {
-  const byCrn = new Map((current.snapshot?.sections || []).map(section => [section.crn, section]));
-  return current.saved.map(crn => byCrn.get(crn)).filter(Boolean);
+function savedSectionList() {
+  return current.saved.map(crn => current.sections.get(crn) || snapshotSection(crn)).filter(Boolean);
+}
+
+function send(message) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, response => {
+      const error = chrome.runtime.lastError;
+      if (error) reject(Error(error.message));
+      else if (!response) reject(Error('The ASB+ background worker did not respond.'));
+      else if (response.ok === false) reject(Error(response.error || 'The ASB+ request failed.'));
+      else resolve(response);
+    });
+  });
+}
+
+function setWorkspaceStatus(message) {
+  document.querySelector('#workspace-status').textContent = message;
+}
+
+function setBrowseStatus(message) {
+  document.querySelector('#browse-status').textContent = message;
+}
+
+async function connect() {
+  try {
+    const response = await send({ type: 'asb-connect' });
+    current.connected = true;
+    current.summary = response.summary;
+    document.querySelector('#term-label').textContent = `${response.summary.termLabel} · ${response.summary.sections.toLocaleString()} sections`;
+    document.querySelector('#backend-status').textContent = `Connected to ${response.base} · ${response.summary.sections.toLocaleString()} sections and ${response.summary.courses.toLocaleString()} courses · data updated ${timeLabel(response.summary.lastUpdated)}.`;
+    if (!current.query) setBrowseStatus(`Search ${response.summary.sections.toLocaleString()} live sections from ${response.summary.termLabel}.`);
+  } catch (error) {
+    current.connected = false;
+    current.summary = null;
+    document.querySelector('#term-label').textContent = 'Backend offline';
+    document.querySelector('#backend-status').textContent = `${error.message} Start the ASB+ app on hp and keep the localhost:8000 tunnel open.`;
+    if (!current.query) {
+      setBrowseStatus(current.snapshot
+        ? 'ASB+ backend is offline. Showing imported planner data until the tunnel is back.'
+        : 'ASB+ backend is offline. Start the app on hp and keep the localhost:8000 tunnel open.');
+    }
+  }
+}
+
+async function refreshSavedFlags() {
+  if (!current.saved.length) return;
+  try {
+    await resolveSavedSections();
+    if (!current.connected) return;
+    const response = await send({ type: 'asb-refresh-saved', crns: current.saved });
+    for (const section of response.sections || []) current.sections.set(section.crn, section);
+    if (response.changed?.length) {
+      const observedAt = new Date().toLocaleString();
+      const additions = response.changed.map(change => ({
+        id: `${Date.now()}-${change.crn}-${Math.random().toString(16).slice(2)}`,
+        kind: 'public-transition',
+        crn: change.crn,
+        message: `Public Howdy flag changed from ${change.from === 'Y' ? 'open' : 'closed'} to ${change.to === 'Y' ? 'open' : 'closed'} for saved CRN ${change.crn}. This is not a seat count.`,
+        observedAt
+      }));
+      current.alerts = [...current.alerts, ...additions].slice(-50);
+      await chrome.storage.local.set({ [storageKeys.alerts]: current.alerts });
+    }
+    renderSaved();
+  } catch {
+    // Keep cached saved data when the backend is unavailable.
+  }
+}
+
+async function resolveSavedSections() {
+  const missing = current.saved.filter(crn => !current.sections.has(crn));
+  if (missing.length && current.connected) {
+    try {
+      const response = await send({ type: 'asb-sections', crns: missing });
+      for (const section of response.sections || []) current.sections.set(section.crn, section);
+    } catch {
+      // Fall back to the optional planner snapshot.
+    }
+  }
+  for (const crn of current.saved) {
+    if (!current.sections.has(crn)) {
+      const section = snapshotSection(crn);
+      if (section) current.sections.set(crn, section);
+    }
+  }
+}
+
+function renderBrowse() {
+  const results = document.querySelector('#section-results');
+  results.replaceChildren();
+  const query = current.query.trim();
+  if (!query) return;
+  const matches = current.results;
+  if (!matches.length) return;
+  const ordered = [...matches].sort((left, right) => left.courseCode.localeCompare(right.courseCode) || left.section.localeCompare(right.section));
+  const limit = 40;
+  const saved = savedSectionList();
+  for (const section of ordered.slice(0, limit)) results.append(createCard(section, current.saved, saved));
 }
 
 function renderSaved() {
   const list = document.querySelector('#saved-list');
   const summary = document.querySelector('#saved-summary');
   list.replaceChildren();
-  const sections = savedSections();
-  const missing = current.saved.filter(crn => !current.snapshot?.sections.some(section => section.crn === crn));
+  const sections = savedSectionList();
+  const missing = current.saved.filter(crn => !current.sections.has(crn) && !snapshotSection(crn));
   if (!current.saved.length) {
     summary.textContent = 'Save a section from Find sections or from a visible Schedule Builder row.';
     list.append(element('p', 'empty-state', 'Your course list will appear here with meeting times, grade history, and conflict checks.'));
     return;
   }
-  const compared = sections.length;
   const meetingMissing = sections.filter(section => section.unknownMeetingBlocks || !section.meetings.length).length;
-  summary.textContent = `${current.saved.length} saved CRN${current.saved.length === 1 ? '' : 's'} · ${compared} found in this snapshot${meetingMissing ? ` · meeting times incomplete for ${meetingMissing}` : ''}${missing.length ? ` · data missing for ${missing.join(', ')}` : ''}.`;
+  summary.textContent = `${current.saved.length} saved CRN${current.saved.length === 1 ? '' : 's'} · ${sections.length} loaded${meetingMissing ? ` · meeting times incomplete for ${meetingMissing}` : ''}${missing.length ? ` · data missing for ${missing.join(', ')}` : ''}.`;
   for (const crn of missing) {
     const missingCard = element('article', 'section-card missing-card');
     missingCard.append(element('h3', '', `CRN ${crn}`));
-    addTextLine(missingCard, 'quiet', 'This section is not in the imported snapshot. Export a fresh snapshot that includes its course, or remove it from Saved sections.');
+    addTextLine(missingCard, 'quiet', 'ASB+ has no section data for this CRN in the selected term. Check this term in Schedule Builder or remove it from Saved sections.');
     const button = element('button', 'secondary', 'Remove saved section');
     button.type = 'button';
     button.addEventListener('click', () => toggleSaved(crn));
@@ -297,36 +387,121 @@ function renderAlerts() {
   }
 }
 
-async function loadState() {
-  const saved = await chrome.storage.local.get({ [storageKeys.snapshot]: null, [storageKeys.saved]: [], [storageKeys.alerts]: [] });
-  current = {
-    snapshot: saved[storageKeys.snapshot],
-    saved: [...new Set((Array.isArray(saved[storageKeys.saved]) ? saved[storageKeys.saved] : []).map(String))].sort(),
-    alerts: Array.isArray(saved[storageKeys.alerts]) ? saved[storageKeys.alerts] : []
-  };
+function updateSnapshotInfo() {
   const snapshot = current.snapshot;
-  document.querySelector('#term-label').textContent = snapshot ? `${snapshot.term || 'Term not listed'} · ${snapshot.sections.length} sections` : 'No section data';
   document.querySelector('#snapshot-info').textContent = snapshot
-    ? `Imported ${snapshot.sections.length} sections · ${snapshot.rules.length} rules · term ${snapshot.term || 'not listed'} · exported ${snapshot.exportedAt || 'time not listed'}.`
+    ? `Planning data: ${snapshot.rules.length} requirement rules from term ${snapshot.term || 'not listed'} · exported ${snapshot.exportedAt || 'time not listed'}.`
     : '';
-  document.querySelector('#saved-count').textContent = String(current.saved.length);
-  removeButton.disabled = !snapshot;
-  renderBrowse();
-  renderSaved();
-  renderAlerts();
+  snapshotStatus.textContent = snapshot
+    ? `Imported ${snapshot.rules.length} requirement rules. Section data still comes live from ASB+.`
+    : 'No planning data imported. Requirement matches will not appear.';
 }
 
-async function toggleSaved(crn) {
-  try {
-    const saved = new Set(current.saved);
-    if (saved.has(crn)) saved.delete(crn);
-    else saved.add(crn);
-    await chrome.storage.local.set({ [storageKeys.saved]: [...saved].sort() });
-    document.querySelector('#workspace-status').textContent = saved.has(crn) ? `Saved CRN ${crn}.` : `Removed CRN ${crn} from Saved sections.`;
-    await loadState();
-  } catch (error) {
-    document.querySelector('#workspace-status').textContent = `Unable to save this section locally: ${error.message}`;
+async function loadLocal() {
+  const saved = await chrome.storage.local.get({ [storageKeys.snapshot]: null, [storageKeys.saved]: [], [storageKeys.alerts]: [] });
+  current.snapshot = saved[storageKeys.snapshot];
+  current.saved = [...new Set((Array.isArray(saved[storageKeys.saved]) ? saved[storageKeys.saved] : []).map(String))].sort();
+  current.alerts = Array.isArray(saved[storageKeys.alerts]) ? saved[storageKeys.alerts] : [];
+  document.querySelector('#saved-count').textContent = String(current.saved.length);
+  removeButton.disabled = !current.snapshot;
+  updateSnapshotInfo();
+  renderAlerts();
+  await resolveSavedSections();
+  renderSaved();
+  renderBrowse();
+}
+
+async function loadState() {
+  await loadLocal();
+  await connect();
+  await loadLocal();
+  refreshSavedFlags().catch(() => {});
+}
+
+async function runSearch(query) {
+  const sequence = ++searchSequence;
+  if (!query.trim()) {
+    current.results = [];
+    renderBrowse();
+    setBrowseStatus(current.connected && current.summary
+      ? `Search ${current.summary.sections.toLocaleString()} live sections from ${current.summary.termLabel}.`
+      : 'ASB+ backend is offline. Start the app on hp and keep the localhost:8000 tunnel open.');
+    return;
   }
+  setBrowseStatus(`Searching ASB+ for ${query.trim()}...`);
+  if (!current.connected) {
+    if (current.snapshot?.sections?.length) {
+      const matches = current.snapshot.sections.filter(section => matchesSearch(section, query)).slice(0, 40);
+      current.results = matches;
+      setBrowseStatus(`ASB+ backend is offline. Showing ${matches.length} match${matches.length === 1 ? '' : 'es'} from imported planner data.`);
+      renderBrowse();
+    } else {
+      current.results = [];
+      setBrowseStatus('ASB+ backend is offline. Start the app on hp and keep the localhost:8000 tunnel open.');
+      renderBrowse();
+    }
+    return;
+  }
+  try {
+    const response = await send({ type: 'asb-search', query, term: current.summary?.term });
+    if (sequence !== searchSequence) return;
+    current.results = response.sections || [];
+    for (const section of current.results) current.sections.set(section.crn, section);
+    const count = current.results.length;
+    const limit = 40;
+    setBrowseStatus(count > limit
+      ? `Showing the first ${limit} of ${count} live matches. Add a course number, instructor, or CRN to narrow results.`
+      : `${count} live section${count === 1 ? '' : 's'} found.`);
+    renderBrowse();
+    renderSaved();
+  } catch (error) {
+    if (sequence !== searchSequence) return;
+    if (current.snapshot?.sections?.length) {
+      current.results = current.snapshot.sections.filter(section => matchesSearch(section, query)).slice(0, 40);
+      setBrowseStatus(`${error.message} Showing imported planner data instead.`);
+    } else {
+      current.results = [];
+      setBrowseStatus(error.message);
+    }
+    renderBrowse();
+  }
+}
+
+function scheduleSearch() {
+  clearTimeout(searchTimer);
+  const query = searchInput.value;
+  current.query = query;
+  searchTimer = setTimeout(() => runSearch(query), 220);
+}
+
+let saveChain = Promise.resolve();
+
+function toggleSaved(crn) {
+  saveChain = saveChain.then(() => mutateSaved(crn)).catch(error => {
+    setWorkspaceStatus(`Unable to save this section locally: ${error.message}`);
+  });
+  return saveChain;
+}
+
+async function mutateSaved(crn) {
+  const stored = await chrome.storage.local.get({ [storageKeys.saved]: [] });
+  const saved = new Set((Array.isArray(stored[storageKeys.saved]) ? stored[storageKeys.saved] : []).map(String));
+  const saving = !saved.has(crn);
+  if (saving) saved.add(crn); else saved.delete(crn);
+  await chrome.storage.local.set({ [storageKeys.saved]: [...saved].sort() });
+  current.saved = [...saved].sort();
+  document.querySelector('#saved-count').textContent = String(current.saved.length);
+  if (saving && !current.sections.has(crn) && current.connected) {
+    try {
+      const response = await send({ type: 'asb-sections', crns: [crn] });
+      for (const section of response.sections || []) current.sections.set(section.crn, section);
+    } catch {
+      // The missing-card path covers an unavailable backend.
+    }
+  }
+  setWorkspaceStatus(saving ? `Saved CRN ${crn}.` : `Removed CRN ${crn} from Saved sections.`);
+  renderBrowse();
+  renderSaved();
 }
 
 function switchView(view) {
@@ -340,7 +515,46 @@ function switchView(view) {
 
 document.querySelector('#browse-tab').addEventListener('click', () => switchView('browse'));
 document.querySelector('#saved-tab').addEventListener('click', () => switchView('saved'));
-searchInput.addEventListener('input', renderBrowse);
+searchInput.addEventListener('input', scheduleSearch);
+document.querySelector('#refresh-backend').addEventListener('click', async event => {
+  event.currentTarget.disabled = true;
+  setWorkspaceStatus('Refreshing public section data from ASB+...');
+  try {
+    await loadState();
+    setWorkspaceStatus('ASB+ data refreshed.');
+  } finally {
+    event.currentTarget.disabled = false;
+  }
+});
+
+document.querySelector('#detect-schedule-builder').addEventListener('click', async () => {
+  const status = document.querySelector('#detect-status');
+  const output = document.querySelector('#detect-output');
+  status.textContent = '';
+  output.hidden = true;
+  output.textContent = '';
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const active = tabs[0];
+    if (!active || !/^https:\/\/tamu\.collegescheduler\.com\//.test(active.url || '')) {
+      status.textContent = 'Open the Schedule Builder tab first.';
+      return;
+    }
+    chrome.tabs.sendMessage(active.id, { type: 'asb-detect' }, response => {
+      const error = chrome.runtime.lastError;
+      if (error || !response?.ok) {
+        status.textContent = 'The ASB+ overlay is not loaded on this page. Reload the Schedule Builder tab.';
+        return;
+      }
+      status.textContent = `${response.count} visible row${response.count === 1 ? '' : 's'} with a 5-digit CRN · ${response.overlayCount} overlay panel${response.overlayCount === 1 ? '' : 's'} · ${response.bodyCrns} distinct 5-digit number${response.bodyCrns === 1 ? '' : 's'} in page text${response.hasCrnLabel ? ' · CRN label visible' : ' · no CRN label in page text'}.`;
+      output.hidden = false;
+      output.textContent = response.rows.map(row => `CRN ${row.crn}${row.status ? ` · ${row.status}` : ''} · ${row.tag}${row.classes ? `.${row.classes.replace(/\s+/g, '.')}` : ''} · ${row.text}`).join('\n') ||
+        'No visible row with a 5-digit CRN was found. Schedule Builder may hide CRNs or use another structure.';
+    });
+  } catch (error) {
+    status.textContent = `Unable to check the active tab: ${error.message}`;
+  }
+});
 
 document.querySelector('#alerts-details').addEventListener('toggle', event => {
   if (event.currentTarget.open) renderAlerts();
@@ -349,10 +563,11 @@ document.querySelector('#alerts-details').addEventListener('toggle', event => {
 document.querySelector('#clear-alerts').addEventListener('click', async () => {
   try {
     await chrome.storage.local.remove(storageKeys.alerts);
-    document.querySelector('#workspace-status').textContent = 'Availability changes cleared.';
-    await loadState();
+    current.alerts = [];
+    setWorkspaceStatus('Availability changes cleared.');
+    renderAlerts();
   } catch (error) {
-    document.querySelector('#workspace-status').textContent = `Unable to clear changes: ${error.message}`;
+    setWorkspaceStatus(`Unable to clear changes: ${error.message}`);
   }
 });
 
@@ -368,7 +583,7 @@ snapshotFile.addEventListener('change', async () => {
   try {
     pendingSnapshot = cleanSnapshot(JSON.parse(await file.text()));
     importButton.disabled = false;
-    snapshotStatus.textContent = `Ready to import ${pendingSnapshot.sections.length} sections and ${pendingSnapshot.rules.length} requirement rules. No degree plan or audit data is included.`;
+    snapshotStatus.textContent = `Ready to import ${pendingSnapshot.rules.length} requirement rules. Live section data is not replaced.`;
   } catch (error) {
     snapshotStatus.textContent = `Unable to read snapshot: ${error.message}`;
   }
@@ -378,55 +593,58 @@ importButton.addEventListener('click', async () => {
   if (!pendingSnapshot) return;
   importButton.disabled = true;
   try {
-    const previous = await chrome.storage.local.get({ [storageKeys.snapshot]: null, [storageKeys.saved]: [], [storageKeys.alerts]: [] });
-    const oldFlags = new Map((previous[storageKeys.snapshot]?.sections || []).map(section => [String(section.crn), section.openFlag]));
-    const watched = new Set((Array.isArray(previous[storageKeys.saved]) ? previous[storageKeys.saved] : []).map(String));
-    const newAlerts = pendingSnapshot.sections.flatMap(section => {
-      const from = oldFlags.get(section.crn), to = section.openFlag;
-      if (!watched.has(section.crn) || !['Y', 'N'].includes(from) || !['Y', 'N'].includes(to) || from === to) return [];
-      return [{
-        id: `${Date.now()}-${section.crn}-${Math.random().toString(16).slice(2)}`, kind: 'public-transition', crn: section.crn,
-        message: `Public Howdy flag changed from ${from === 'Y' ? 'open' : 'closed'} to ${to === 'Y' ? 'open' : 'closed'} for saved CRN ${section.crn}. This is not a seat count.`,
-        observedAt: new Date().toLocaleString()
-      }];
-    });
-    const alerts = [...(Array.isArray(previous[storageKeys.alerts]) ? previous[storageKeys.alerts] : []), ...newAlerts].slice(-50);
-    await chrome.storage.local.set({ [storageKeys.snapshot]: pendingSnapshot, [storageKeys.alerts]: alerts });
-    snapshotStatus.textContent = newAlerts.length
-      ? `${newAlerts.length} saved public availability change${newAlerts.length === 1 ? '' : 's'} detected. See Availability changes.`
-      : `Imported ${pendingSnapshot.sections.length} sections. No saved public availability change was found.`;
-    document.querySelector('#workspace-status').textContent = 'Section data updated in this browser.';
+    const planningData = { ...pendingSnapshot, sections: [] };
+    await chrome.storage.local.set({ [storageKeys.snapshot]: planningData });
+    current.snapshot = planningData;
+    snapshotStatus.textContent = `Imported ${planningData.rules.length} requirement rules. Refresh a search to recompute requirement matches.`;
+    setWorkspaceStatus('Planning data updated in this browser.');
     pendingSnapshot = null;
     snapshotFile.value = '';
-    await loadState();
+    updateSnapshotInfo();
+    if (current.saved.length && current.connected) {
+      try {
+        const response = await send({ type: 'asb-sections', crns: current.saved });
+        for (const section of response.sections || []) current.sections.set(section.crn, section);
+      } catch {
+        // Saved cards keep their previous requirement context.
+      }
+    }
+    if (current.query) runSearch(current.query);
+    else renderSaved();
   } catch (error) {
-    snapshotStatus.textContent = `Unable to save snapshot locally: ${error.message}`;
+    snapshotStatus.textContent = `Unable to save planning data locally: ${error.message}`;
   } finally {
     importButton.disabled = !pendingSnapshot;
   }
 });
 
 document.querySelector('#clear-snapshot').addEventListener('click', async () => {
-  if (!confirm('Remove imported section data from this browser? Saved CRNs and availability changes will stay.')) return;
+  if (!confirm('Remove imported planning data from this browser? Saved CRNs and availability changes will stay.')) return;
   try {
     await chrome.storage.local.remove(storageKeys.snapshot);
-    snapshotStatus.textContent = 'Imported section data removed. Saved CRNs and availability changes remain.';
-    document.querySelector('#workspace-status').textContent = 'Local section data removed.';
-    await loadState();
+    current.snapshot = null;
+    snapshotStatus.textContent = 'Planning data removed. Saved CRNs and availability changes remain.';
+    setWorkspaceStatus('Local planning data removed.');
+    updateSnapshotInfo();
+    removeButton.disabled = true;
+    renderSaved();
   } catch (error) {
     snapshotStatus.textContent = `Unable to remove local data: ${error.message}`;
   }
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'local' && Object.keys(storageKeys).some(key => changes[storageKeys[key]])) {
-    loadState().catch(error => {
-      document.querySelector('#workspace-status').textContent = `Unable to refresh local data: ${error.message}`;
-    });
+  if (areaName !== 'local') return;
+  if (changes[storageKeys.saved] || changes[storageKeys.snapshot]) {
+    loadLocal().catch(error => setWorkspaceStatus(`Unable to refresh local data: ${error.message}`));
+  }
+  if (changes[storageKeys.alerts]) {
+    current.alerts = changes[storageKeys.alerts].newValue || [];
+    renderAlerts();
   }
 });
 
 loadState().catch(error => {
-  document.querySelector('#workspace-status').textContent = `Unable to open local extension storage: ${error.message}`;
+  setWorkspaceStatus(`Unable to open the ASB+ workspace: ${error.message}`);
   snapshotStatus.textContent = 'Reload the extension and try again.';
 });
