@@ -20,18 +20,35 @@ pub struct AppState {
 pub struct ApiError {
     status: StatusCode,
     message: String,
+    code: Option<&'static str>,
 }
 impl ApiError {
     fn new(status: StatusCode, error: impl std::fmt::Display) -> Self {
         Self {
             status,
             message: error.to_string(),
+            code: None,
+        }
+    }
+
+    fn typed(status: StatusCode, code: &'static str, error: impl std::fmt::Display) -> Self {
+        Self {
+            status,
+            message: error.to_string(),
+            code: Some(code),
         }
     }
 }
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        (self.status, Json(json!({"error": self.message}))).into_response()
+        let status = self.status;
+        let message = self.message;
+        let code = self.code;
+        let body = match code {
+            Some(code) => json!({"error":message,"code":code}),
+            None => json!({"error":message}),
+        };
+        (status, Json(body)).into_response()
     }
 }
 impl From<anyhow::Error> for ApiError {
@@ -50,6 +67,7 @@ pub struct Search {
     q: Option<String>,
     course: Option<String>,
     term: Option<String>,
+    crns: Option<String>,
     campus: Option<String>,
     subject: Option<String>,
     instructor: Option<String>,
@@ -438,10 +456,227 @@ LEFT JOIN (
 ) g ON g.subject=s.subject AND g.course=s.course
 WHERE 1=1
 "#;
+const SCHEDULE_BUILDER_TERM: &str = "202711";
+const MAX_SECTION_CRNS: usize = 50;
+
+fn section_lookup_term(term: Option<&str>) -> Result<String, ApiError> {
+    let Some(term) = term.map(str::trim).filter(|term| !term.is_empty()) else {
+        return Err(ApiError::typed(
+            StatusCode::BAD_REQUEST,
+            "missing_term",
+            "A term is required for section CRN lookup.",
+        ));
+    };
+    if term != SCHEDULE_BUILDER_TERM {
+        return Err(ApiError::typed(
+            StatusCode::BAD_REQUEST,
+            "unsupported_term",
+            format!("Only term {SCHEDULE_BUILDER_TERM} is available."),
+        ));
+    }
+    Ok(term.to_owned())
+}
+
+fn section_lookup_crns(value: &str) -> Result<Vec<String>, ApiError> {
+    if value.trim().is_empty() {
+        return Err(ApiError::typed(
+            StatusCode::BAD_REQUEST,
+            "missing_crns",
+            "At least one CRN is required.",
+        ));
+    }
+    let values: Vec<_> = value.split(',').map(str::trim).collect();
+    if values.len() > MAX_SECTION_CRNS {
+        return Err(ApiError::typed(
+            StatusCode::BAD_REQUEST,
+            "too_many_crns",
+            format!("At most {MAX_SECTION_CRNS} CRNs may be requested."),
+        ));
+    }
+    if values
+        .iter()
+        .any(|crn| crn.len() != 5 || !crn.bytes().all(|byte| byte.is_ascii_digit()))
+    {
+        return Err(ApiError::typed(
+            StatusCode::BAD_REQUEST,
+            "invalid_crn",
+            "Each CRN must contain exactly five digits.",
+        ));
+    }
+    Ok(values.into_iter().map(str::to_owned).collect())
+}
+
+async fn sections_by_crn(
+    pool: &sqlx::SqlitePool,
+    term: &str,
+    crns: &[String],
+) -> Result<Json<Value>, ApiError> {
+    let mut query = QueryBuilder::<Sqlite>::new(SECTION_QUERY);
+    query.push(" AND s.term=").push_bind(term);
+    query.push(" AND s.crn IN (");
+    for (index, crn) in crns.iter().enumerate() {
+        if index > 0 {
+            query.push(",");
+        }
+        query.push_bind(crn);
+    }
+    query.push(") ORDER BY s.subject,s.course,s.section,s.crn");
+    let rows: Vec<SectionRow> = query.build_query_as().fetch_all(pool).await?;
+    let sections: Vec<Section> = rows.into_iter().map(Section::from).collect();
+    Ok(Json(json!({"term":term,"sections":sections})))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sqlx::sqlite::SqlitePoolOptions;
+
+    async fn state_with_section() -> AppState {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        crate::db::migrate(&pool).await.unwrap();
+        sqlx::query(
+            "INSERT INTO sections(term,crn,subject,course,section,title,source,updated_at) VALUES(?,?,?,?,?,?,?,?)",
+        )
+        .bind(SCHEDULE_BUILDER_TERM)
+        .bind("37075")
+        .bind("CSCE")
+        .bind("482")
+        .bind("500")
+        .bind("Software Engineering")
+        .bind("howdy-public")
+        .bind(1_i64)
+        .execute(&pool)
+        .await
+        .unwrap();
+        AppState { pool }
+    }
+
+    async fn assert_typed_400(result: Result<Json<Value>, ApiError>, expected_code: &str) {
+        let error = result.expect_err("expected a typed bad request");
+        assert_eq!(error.status, StatusCode::BAD_REQUEST);
+        assert_eq!(error.code, Some(expected_code));
+        let response = error.into_response();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let value: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(value["code"], expected_code);
+        assert!(value["error"].as_str().is_some());
+    }
+
+    #[tokio::test]
+    async fn crn_lookup_is_exact_and_returns_empty_for_unknown_crns() {
+        let state = state_with_section().await;
+        let result = sections(
+            State(state.clone()),
+            Query(Search {
+                term: Some(SCHEDULE_BUILDER_TERM.into()),
+                crns: Some("37075,99999".into()),
+                ..Search::default()
+            }),
+        )
+        .await
+        .unwrap();
+        let Json(value) = result;
+        assert_eq!(value["term"], SCHEDULE_BUILDER_TERM);
+        assert_eq!(value["sections"].as_array().unwrap().len(), 1);
+        assert_eq!(value["sections"][0]["crn"], "37075");
+        assert_eq!(value["sections"][0]["term"], SCHEDULE_BUILDER_TERM);
+
+        let result = sections(
+            State(state),
+            Query(Search {
+                term: Some(SCHEDULE_BUILDER_TERM.into()),
+                crns: Some("99999".into()),
+                ..Search::default()
+            }),
+        )
+        .await
+        .unwrap();
+        let Json(value) = result;
+        assert_eq!(value["sections"].as_array().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn crn_lookup_validates_term_and_batch_size() {
+        let state = state_with_section().await;
+        assert_typed_400(
+            sections(
+                State(state.clone()),
+                Query(Search {
+                    crns: Some("37075".into()),
+                    ..Search::default()
+                }),
+            )
+            .await,
+            "missing_term",
+        )
+        .await;
+        assert_typed_400(
+            sections(
+                State(state.clone()),
+                Query(Search {
+                    term: Some("202611".into()),
+                    crns: Some("37075".into()),
+                    ..Search::default()
+                }),
+            )
+            .await,
+            "unsupported_term",
+        )
+        .await;
+        let crns = (0..=MAX_SECTION_CRNS)
+            .map(|number| format!("{number:05}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        assert_typed_400(
+            sections(
+                State(state),
+                Query(Search {
+                    term: Some(SCHEDULE_BUILDER_TERM.into()),
+                    crns: Some(crns),
+                    ..Search::default()
+                }),
+            )
+            .await,
+            "too_many_crns",
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn q_search_keeps_its_existing_response_contract() {
+        let state = state_with_section().await;
+        let result = sections(
+            State(state),
+            Query(Search {
+                term: Some(SCHEDULE_BUILDER_TERM.into()),
+                q: Some("CSCE 482".into()),
+                ..Search::default()
+            }),
+        )
+        .await
+        .unwrap();
+        let Json(value) = result;
+        assert_eq!(value["limit"], 100);
+        assert_eq!(value["offset"], 0);
+        assert_eq!(value["sections"].as_array().unwrap().len(), 1);
+        assert_eq!(value["sections"][0]["crn"], "37075");
+    }
+}
 async fn sections(
     State(state): State<AppState>,
     Query(search): Query<Search>,
 ) -> Result<Json<Value>, ApiError> {
+    if let Some(crns) = search.crns.as_deref() {
+        let term = section_lookup_term(search.term.as_deref())?;
+        let crns = section_lookup_crns(crns)?;
+        return sections_by_crn(&state.pool, &term, &crns).await;
+    }
     for (value, max, name) in [
         (search.min_gpa, 4.0, "Minimum GPA"),
         (search.max_gpa, 4.0, "Maximum GPA"),
